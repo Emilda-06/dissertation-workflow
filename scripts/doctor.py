@@ -22,7 +22,7 @@ def version(cmd):
 
 def main():
     setup_stdout()
-    cfg = load_config()
+    cfg = load_config(require_project=False)
     rows = []
 
     def add(name, ok, detail, fix=""):
@@ -67,7 +67,8 @@ def main():
 
     for f, fix in [(TEMPLATES / "reference.docx", "python scripts/make_template.py"),
                    (TEMPLATES / "harvard-cite-them-right.csl", "download Harvard CSL"),
-                   (TEMPLATES / "crossref.yaml", ""), (CONFIG / "project.yaml", "")]:
+                   (TEMPLATES / "crossref.yaml", ""),
+                   (CONFIG / "project.yaml", "copy config/project.example.yaml to config/project.yaml")]:
         add(f"file: {f.relative_to(CONFIG.parent)}", f.exists(), "present" if f.exists() else "missing", fix)
     cover = next((p for p in (CONFIG / "cover.docx", CONFIG / "cover.pdf") if p.exists()), None)
     add("cover page", bool(cover), cover.name if cover else "missing", "put your cover at config/cover.docx")
