@@ -10,7 +10,7 @@ from common import ensure_zotero, load_config, setup_stdout, zotero_ready
 
 def main():
     setup_stdout()
-    cfg = load_config()
+    cfg = load_config(require_project=False)
     was_running = zotero_ready(cfg)
     ensure_zotero(cfg)
     print("Zotero: running" if was_running else "Zotero: started automatically and ready")

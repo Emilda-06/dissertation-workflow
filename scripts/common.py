@@ -67,11 +67,15 @@ def load_env() -> dict[str, str]:
     return values
 
 
-def load_config() -> dict:
+def load_config(require_project: bool = True) -> dict:
+    """require_project=False lets setup tools (doctor, ensure_zotero) run before project.yaml exists."""
     project = CONFIG / "project.yaml"
-    if not project.exists():
+    if project.exists():
+        cfg = yaml.safe_load(project.read_text(encoding="utf-8")) or {}
+    elif require_project:
         die("config/project.yaml not found - copy config/project.example.yaml to config/project.yaml and fill it in")
-    cfg = yaml.safe_load(project.read_text(encoding="utf-8")) or {}
+    else:
+        cfg = {}
     env = load_env()
     cfg["local"] = {
         "contact_email": env.get("CONTACT_EMAIL", ""),
