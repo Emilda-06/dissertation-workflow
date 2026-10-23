@@ -1,0 +1,70 @@
+# =============================================================================
+# Dissertation workflow - .gitignore
+#
+# The repository holds only the pipeline (scripts, skill, templates, docs).
+# Everything that belongs to one student - their details, documents, chapters,
+# references and secrets - stays on their own machine and is never committed.
+# =============================================================================
+
+# ---- Secrets and private settings -------------------------------------------
+.env
+.env.*
+!.env.example
+
+# ---- Student-specific configuration -----------------------------------------
+# Copy config/project.example.yaml to config/project.yaml and fill it in.
+config/project.yaml
+# Cover page (from the student's university template)
+config/cover.docx
+config/cover.pdf
+# Department guidelines, supervisor feedback and the student's earlier work
+config/guidelines/*
+!config/guidelines/.gitkeep
+config/feedback/*
+!config/feedback/.gitkeep
+config/existing/*
+!config/existing/.gitkeep
+
+# ---- Everything the pipeline produces ---------------------------------------
+output/chapters/*
+!output/chapters/.gitkeep
+output/dissertation/docs/*
+!output/dissertation/docs/.gitkeep
+output/dissertation/front_matter/*
+!output/dissertation/front_matter/.gitkeep
+
+# ---- Reference library (built per student, synced with their Zotero) --------
+references/*
+!references/.gitkeep
+
+# ---- Build intermediates ----------------------------------------------------
+.build/
+
+# ---- Local tools and environments (installed per machine, see SETUP.md) -----
+.venv/
+venv/
+node_modules/
+tools/
+
+# ---- Python -----------------------------------------------------------------
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ---- Claude Code: personal settings (shared settings.json stays tracked) ----
+.claude/settings.local.json
+CLAUDE.local.md
+
+# ---- Office, editor and OS clutter ------------------------------------------
+~$*
+*.tmp
+*.bak
+*.swp
+.~lock.*#
+.vscode/
+.idea/
+Thumbs.db
+Desktop.ini
+.DS_Store

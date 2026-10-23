@@ -1,0 +1,10 @@
+python-docx
+pyyaml
+requests
+rapidfuzz
+pypdf
+pypdfium2
+matplotlib
+seaborn
+pandas
+numpy

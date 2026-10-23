@@ -1,0 +1,12 @@
+# pandoc-crossref settings: chapter-numbered figures/tables (Figure 3.1, Table 3.2)
+figureTitle: "Figure"
+tableTitle: "Table"
+figPrefix: ["Figure", "Figures"]
+tblPrefix: ["Table", "Tables"]
+secPrefix: ["Section", "Sections"]
+titleDelim: ":"
+chapters: true
+chaptersDepth: 1
+linkReferences: true
+nameInLink: true
+autoSectionLabels: false

@@ -1,0 +1,67 @@
+{
+  "theme": "base",
+  "themeVariables": {
+    "fontFamily": "Times New Roman",
+    "fontSize": "16px",
+    "primaryColor": "#ffffff",
+    "primaryBorderColor": "#1f3b57",
+    "primaryTextColor": "#000000",
+    "lineColor": "#1f3b57",
+    "secondaryColor": "#e8eef4",
+    "tertiaryColor": "#f5f5f5",
+    "clusterBkg": "#f4f7fa",
+    "clusterBorder": "#7a8a99",
+    "edgeLabelBackground": "#ffffff"
+  },
+  "flowchart": {
+    "curve": "basis",
+    "padding": 12,
+    "htmlLabels": true,
+    "useMaxWidth": false
+  },
+  "sequence": {
+    "useMaxWidth": false
+  },
+  "gantt": {
+    "useMaxWidth": false,
+    "fontSize": 16,
+    "sectionFontSize": 16,
+    "barHeight": 28
+  },
+  "class": {
+    "useMaxWidth": false
+  },
+  "state": {
+    "useMaxWidth": false
+  },
+  "er": {
+    "useMaxWidth": false
+  },
+  "journey": {
+    "useMaxWidth": false
+  },
+  "pie": {
+    "useMaxWidth": false
+  },
+  "mindmap": {
+    "useMaxWidth": false
+  },
+  "timeline": {
+    "useMaxWidth": false
+  },
+  "requirement": {
+    "useMaxWidth": false
+  },
+  "quadrantChart": {
+    "useMaxWidth": false
+  },
+  "xyChart": {
+    "useMaxWidth": false
+  },
+  "block": {
+    "useMaxWidth": false
+  },
+  "architecture": {
+    "useMaxWidth": false
+  }
+}

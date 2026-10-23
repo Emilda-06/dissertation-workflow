@@ -1,0 +1,47 @@
+# ---------------------------------------------------------------------------
+# Dissertation settings. Copy this file to config/project.yaml and fill it in.
+# config/project.yaml is git-ignored; the pipeline reads it on every run.
+# ---------------------------------------------------------------------------
+project:
+  title: "Your Dissertation Title"
+  student_name: "Your Name"
+  student_id: "Your Student ID"
+  programme: "Your Degree Programme"
+  department: "Department of Computer Science"
+  faculty: "Your Faculty"
+  university: "Your University"
+  supervisor: "Your Supervisor"
+  document_type: "Dissertation"
+  domain: "your research area, e.g. machine learning, distributed systems"
+  # Source of truth for the research problem, aim, objectives and research questions
+  # (usually your Chapter 1 once it is written or imported):
+  current_topic_source: "output/chapters/chapter_one/chapter.md"
+
+# Chapter plan. 'type' tells the writer what kind of chapter it is
+# (introduction | literature | methodology | design | results | conclusion).
+# 'guideline' = file(s) in config/guidelines/ the chapter must follow (their sections override defaults).
+# 'min_references' = minimum number of distinct sources the guideline requires.
+chapters:
+  1: {title: "Introduction", type: introduction, guideline: "", min_references: 20}
+  2: {title: "Literature Review", type: literature, guideline: "", min_references: 20}
+  3: {title: "Methodology", type: methodology, guideline: ""}
+  4: {title: "System Design and Implementation", type: design, guideline: ""}
+  5: {title: "Testing, Results and Evaluation", type: results, guideline: ""}
+  6: {title: "Conclusion and Recommendations", type: conclusion, guideline: ""}
+
+references:
+  style: "Harvard (Cite Them Right)"
+  min_year: 2016                    # PREFERRED range: min_year to today (not a hard cutoff)
+  target_recent_share: 80           # aim for at least this % of a chapter's sources from min_year onwards
+  # Older sources are allowed when justified (e.g. the original definition of a concept, a
+  # standard, a seminal paper); the checker warns, it never blocks.
+
+format:
+  font: "Times New Roman"
+  font_size: 12
+  table_font_size: 12
+  caption_font_size: 12
+  line_spacing: 1.5
+  heading_sizes: {1: 12, 2: 12, 3: 12, 4: 12}
+  margins_cm: {top: 2.54, bottom: 2.54, left: 2.54, right: 2.54}
+  cover: true                       # put config/cover.docx (or cover.pdf) in front of every build
