@@ -4,7 +4,10 @@ param(
     [Parameter(Mandatory = $true)][string]$Docx,
     [string]$Cover = "",
     [string]$CoverImage = "",
-    [switch]$Pdf
+    [string]$FooterFont = "Times New Roman",
+    [double]$FooterSize = 12,
+    [switch]$Pdf,
+    [switch]$PdfA
 )
 $ErrorActionPreference = "Stop"
 $Docx = (Resolve-Path $Docx).Path
@@ -49,8 +52,8 @@ try {
         $r = $footer.Range
         $doc.Fields.Add($r, 33) | Out-Null           # wdFieldPage
         $footer.Range.ParagraphFormat.Alignment = 1   # centre
-        $footer.Range.Font.Name = "Times New Roman"
-        $footer.Range.Font.Size = 12
+        $footer.Range.Font.Name = $FooterFont
+        $footer.Range.Font.Size = $FooterSize
         $pn = $footer.PageNumbers
         $pn.RestartNumberingAtSection = $true
         $pn.StartingNumber = 1
@@ -66,8 +69,8 @@ try {
     $doc.Save()
     if ($Pdf) {
         $pdfPath = [IO.Path]::ChangeExtension($Docx, ".pdf")
-        # 17 = wdExportFormatPDF; CreateBookmarks 1 = from headings
-        $doc.ExportAsFixedFormat($pdfPath, 17, $false, 0, 0, 1, 1, 0, $true, $true, 1)
+        # 17 = wdExportFormatPDF; CreateBookmarks 1 = from headings; last argument = PDF/A (ISO 19005-1)
+        $doc.ExportAsFixedFormat($pdfPath, 17, $false, 0, 0, 1, 1, 0, $true, $true, 1, $true, $true, [bool]$PdfA)
         Write-Output "PDF: $pdfPath"
     }
     $pages = $doc.ComputeStatistics(2)
