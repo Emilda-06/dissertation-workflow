@@ -1,7 +1,7 @@
 ---
 name: dissertation
-description: Dissertation pipeline. Writes a new chapter end to end (plan, research, verify sources, write, diagrams, quality check, build Word document), edits an existing chapter from supervisor or user feedback given in chat, pasted, or as a file, or combines chapters into one Word document. Use whenever the user asks to write, revise, fix, improve, extend or build any dissertation chapter, including plain-language requests like "my supervisor says...".
-argument-hint: (optional) new <n> | edit <n> <feedback> | combine | status
+description: Dissertation pipeline. Writes a new chapter end to end (plan, research, verify sources, write, diagrams, quality check, build Word document), edits an existing chapter from supervisor or user feedback given in chat, pasted, or as a file, combines chapters into one Word document, and manages several dissertation projects. Use whenever the user asks to write, revise, fix, improve, extend or build any dissertation chapter, switch or create a dissertation project, or add department guidelines/templates, including plain-language requests like "my supervisor says...".
+argument-hint: (optional) new <n> | edit <n> <feedback> | combine | status | project <name>
 ---
 
 # Dissertation pipeline
@@ -10,74 +10,83 @@ Arguments: `$ARGUMENTS`
 
 Read `CLAUDE.md` (rules) first.
 
+`PY` means the project venv's Python: `.venv/Scripts/python.exe` on Windows, `.venv/bin/python`
+elsewhere (Bash tool, from the workflow root). Every script works on the **active project**; add
+`--project <name>` to target another one. Always say which project you are working on.
+
 ## Menu (when there are no arguments, or the request is vague)
 
 The user should never need to remember commands. If `$ARGUMENTS` is empty, or the user says
-something like "start", "menu", "hi" or "what can you do", silently run `PY scripts/state.py show`
-and `PY scripts/doctor.py`, then ask with the **AskUserQuestion** tool. Don't print the menu as
-plain text.
+something like "start", "menu", "hi" or "what can you do", silently run `PY scripts/project.py list`,
+`PY scripts/status.py` and `PY scripts/doctor.py`, then ask with the **AskUserQuestion** tool. Don't
+print the menu as plain text.
 
-**Question 1: "What would you like to do?"** (header: `Task`)
+If **no project exists**, first ask for a short name and the title, then run
+`PY scripts/project.py new <name> --title "<title>"` (or `project.py migrate <name>` if doctor reports
+the old single-project layout). If several exist and none is active, ask which one.
+
+**Question 1: "What would you like to do in <project>?"** (header: `Task`)
 | Option | Description |
 |---|---|
 | Write a new chapter | Research, write, add diagrams, check and build a chapter from scratch |
 | Revise a chapter | Apply changes from your supervisor or from you |
-| Build full dissertation | Combine all chapters into one Word document with cover, contents and references |
-| Status and setup | See each chapter's progress, versions, and anything still to set up |
+| Build full dissertation | Combine all chapters (and appendices) into one Word document |
+| Status, setup or switch project | Progress, guidelines, setup problems, or another dissertation |
 
-**Question 2, asked straight after Question 1 (only for Write or Revise): "Which chapter?"** (header: `Chapter`)
-- Build the options from `config/project.yaml` as `"<n>. <title>"`.
-  - For *Write*, list chapters that don't have a `chapter.md` yet.
-  - For *Revise*, list chapters that do.
+**Question 2, straight after Question 1 (only for Write or Revise): "Which chapter?"** (header: `Chapter`)
+- Build the options from the project's `project.yaml` as `"<n>. <title>"`.
+  - For *Write*, list chapters that don't have a `chapter.md` yet; for *Revise*, those that do.
   - Show at most 4. The user can pick "Other" and type a number.
-- If only one chapter fits, still ask, so the user can confirm.
 
 **Question 3, Revise only: "How will you give the changes?"** (header: `Feedback`)
 | Option | Description |
 |---|---|
 | I'll type or paste it | Wait for the next message, then use it as the feedback |
-| File in config/feedback | List the files there (newest first) and let the user pick, or use the only one |
-| Comments in a Word file | The user returns a chapter .docx with comments or tracked changes. Read it with `tools/pandoc.exe <file> -t markdown --track-changes=all` and treat each comment as a concern |
+| File in feedback/ | List the project's feedback/ files (newest first) and let the user pick |
+| Comments in a Word file | A returned .docx with comments/tracked changes: `tools/pandoc <file> -t markdown --track-changes=all`; each comment is a concern |
 | Fix the checker's warnings | Run `check.py <n>` and address every warning |
 
-**Combine only: "Which output?"** (header: `Output`): `Word only` / `Word and PDF`.
+**Combine only: "Which output?"** (header: `Output`): `Word only` / `Word and PDF` / `PDF/A for submission`.
 
-**Status and setup:** summarise in a short table:
-- each chapter: whether it exists, its latest docx version, word count from `check.py`, and any run in progress;
-- every `--` line from `doctor.py`, with the exact fix (see `SETUP.md`).
+**Status, setup or switch project:** show `status.py` as a short table (add `--html` and give the
+path if they want a page), every `--` line from `doctor.py` with its fix, and `guidelines.py status`.
+Offer: switch project (`project.py use <name>`), create one, or `status.py --all-projects`.
 
-Then ask whether they want to do something else (Question 1 again).
-
-Then run the matching mode below. If `$ARGUMENTS` was given, skip the menu:
+If `$ARGUMENTS` was given, skip the menu:
 
 | Input | Mode |
 |---|---|
-| `new <n>` | **NEW**: write chapter n from scratch |
+| `new <n>` | **NEW** |
 | `edit <n> ...`, or any request to change, fix or add to a chapter | **EDIT** |
 | `combine` | **COMBINE** |
-| `status` | the Status and setup summary above |
+| `status` | the status summary above |
+| `project <name>` | switch to (or offer to create) that project |
 
-If `doctor.py` shows a missing tool that the chosen task needs (for example no cover page before a
-build, or no CONTACT_EMAIL before research), say so in one line and carry on if possible:
-research still works without an email, and builds still work without a cover.
-
-`PY` below means `.venv/Scripts/python.exe` (Bash tool, from the workflow root).
+If a tool the task needs is missing (doctor `--`), say so in one line and carry on if possible:
+research works without an email; builds work without a cover, without Word (LibreOffice / none).
 
 ## Before any mode
 
-0. Run `PY scripts/ensure_zotero.py`. It starts Zotero if it is closed. If it fails, stop and tell
-   the user to open Zotero. Never continue without it (workflow rule).
-1. Run `PY scripts/state.py show <n>`. If a run is **IN PROGRESS** for this chapter, tell the user
-   and resume from the next unfinished stage. Don't restart.
-2. Run `git add -A && git commit -qm "before: <mode> chapter <n>" || true`.
-3. Load context:
-   - `config/project.yaml`: title, chapter plan, chapter `type` and `guideline`.
-   - The chapter guideline in `config/guidelines/` (named in project.yaml, or any file whose name
-     mentions this chapter). **The guideline's required sections override the default structure.**
-   - `config/existing/` (read `NOTES.md` there first): the proposal and earlier chapters. Use them for the research problem,
-     aim, objectives, research questions, scope and terminology, so the new chapter is consistent.
-     Read them; do not copy from them.
-   - Other chapters' `chapter.md`, to keep terminology, objectives and cross-references consistent.
+1. `PY scripts/pipeline.py begin <n> <new|edit> "<request summarised>"`. It checks Zotero (for
+   projects that use it; if it cannot start, stop and tell the user), snapshots the project's git
+   history, and starts the run, or tells you a run is **IN PROGRESS**: then resume from the next
+   unfinished stage (`state.py show <n>`). Don't restart.
+2. **Guidelines (templates).** Run `PY scripts/guidelines.py status`.
+   - New or changed files in `guidelines/` are scanned automatically. If any part is marked
+     **REVIEW**, read it (`guidelines.py show <n>` / `list`) and decide the mapping yourself when the
+     text makes it clear (`guidelines.py map <file> <part-id> <chapter|general|ignore>`); ask the
+     user only when it is genuinely ambiguous. File names never matter.
+   - If there is no `requirements/spec.yaml`, or it is stale, (re)build it: `guidelines.py spec-init`
+     (once), then for each chapter read `guidelines.py show <n>` and record **only what the guideline
+     says**: required sections (ids, titles, order, level), required figures/tables (`elements`, with
+     a caption keyword in `match`), word range, minimum references, and other rules as
+     `requirements`. Every item needs `source: {file, page, quote}` with a quote copied from the text.
+     Run `guidelines.py validate` until VALID, show the user a short summary, and after they agree run
+     `guidelines.py approve`.
+3. `PY scripts/context.py <n>`: the project details, the research problem/aim/objectives/questions,
+   the chapter plan, the merged outline skeleton and the guideline text for this chapter, the other
+   chapters' headings and labels, and the earlier work and feedback files. Read files in `existing/`
+   it lists when relevant; use them for consistency, never copy from them.
 
 Record each finished stage with `PY scripts/state.py done <n> <stage> "<short note>"`.
 
@@ -85,43 +94,34 @@ Record each finished stage with `PY scripts/state.py done <n> <stage> "<short no
 
 ## NEW mode
 
-`PY scripts/state.py start <n> new "<user request>"`
-
 ### Stage 1: plan (the only stop for user approval)
-Write `output/chapters/chapter_<word>/outline.md`:
-- each `##` and `###` section with 1–2 lines on its purpose, mapped to the guideline's requirements
-  and the research objectives;
-- the planned figures (type and tool), tables, and bullet or numbered lists, spread across the
-  chapter (see writing-guide.md, "Variety");
-- 4–8 search queries for the research stage;
-- target length (from the guideline; otherwise introduction 3,000–4,000 words, literature review
-  6,000–8,000, methodology 4,000–5,000, design 5,000–7,000, results 5,000–7,000, conclusion
-  2,000–3,000).
+Start from `PY scripts/guidelines.py outline <n>` (template + defaults + expansion). Write
+`output/chapters/chapter_<word>/outline.md`:
+- every `##` / `###` section with 1–2 lines on its purpose, tagged **template / default / expansion**,
+  mapped to the guideline requirement and to the research objectives. Template sections keep their
+  titles (unless `title_policy: adapt`) and order; a short template is expanded, never replaced;
+- the planned figures (type and tool), tables and lists, including every required element;
+- 4–8 search queries; the target length (from the outline skeleton).
 
-Show the outline to the user briefly and **ask for approval or changes**. After approval, run every
-other stage without stopping.
+Show the outline briefly and **ask for approval or changes**. After approval, run every other stage
+without stopping.
 
 ### Stage 2: research
-Follow `research-guide.md`. For each query, run `PY scripts/research.py search "<query>" --chapter <n>`.
-Shortlist the strongest sources. For each one you'll cite, try
-`research.py fulltext --chapter <n> --doi <doi>` and read the extracted text (relevant pages) or
-at least the abstract. Write `research/notes.md`: per source, the key claims you'll use with page
-numbers, the method or evidence, limitations, and the section where it will be used. Aim for
-roughly 1 distinct source per 150–250 words of a literature chapter, fewer for others.
+Follow `research-guide.md`. `PY scripts/research.py search "<query>" --chapter <n>` per query.
+For each source you'll rely on, `research.py fulltext --chapter <n> --doi <doi>` and read the relevant
+pages (or at least the abstract). Write `research/notes.md` (claims with pages, evidence,
+limitations, section). Roughly 1 source per 150–250 words for a literature chapter, fewer otherwise.
 
 ### Stage 3: verify
-Add shortlisted sources with `PY scripts/refs.py add --doi <doi> <doi> ...`. Use
-`add-manual` only for standards, RFCs or official reports without a DOI. It runs verification
-automatically. Drop anything not `VERIFIED`; never fix a mismatch by editing metadata to fit.
-Prefer 2016-onwards sources (target 80% or more). A pre-2016 source is fine when it is the best or original
-source; record why with `refs.py mark-foundational <key> "<reason>"`.
-Then run `PY scripts/refs.py sync-zotero` so the verified sources also appear in the user's Zotero
-(it's skipped with a note if Zotero is closed). Sources the user saved in Zotero are pulled automatically
-at build time. Before citing one of those, run `refs.py verify --keys <key>`.
+`PY scripts/refs.py add --doi <doi> ...` (`add-manual` only for standards/reports without a DOI).
+Drop anything not `VERIFIED` (mismatch, failed, **retracted**); never edit metadata to make it fit.
+Prefer sources from `min_year` on; justify older ones with `refs.py mark-foundational`. Then
+`refs.py sync-zotero` (projects using Zotero; it refuses if the wrong collection is selected and
+says what to do). Zotero items are pulled at build time; `refs.py verify --keys <key>` before citing.
 
 ### Stage 4: write
-Write `output/chapters/chapter_<word>/chapter.md` following `writing-guide.md` and `harvard-guide.md`.
-Front matter:
+Write `chapter.md` following `writing-guide.md` and the style guide for the project's citation style
+(`harvard-guide.md` covers the pandoc syntax for every style). Front matter:
 ```yaml
 ---
 chapter: <n>
@@ -130,71 +130,48 @@ type: <type>
 status: draft
 ---
 ```
-Start directly with `## Introduction`. The chapter title heading and all numbers are generated.
-For every figure, follow `diagram-standard.md` part C: introduce it, place it, then explain it.
-Every planned figure must match the catalogue in part A.
-Write section by section and save as you go (long chapters may need several writes).
+Start directly with the first `##` section. Put `{#sec:<spec id>}` on every template heading and
+`<!-- req: <ID> -->` where each free-text requirement is met. Mention each required element's
+keyword in its caption. Write section by section and save as you go.
 
 ### Stage 5: diagrams
-Create each planned figure following `diagram-standard.md` in `output/chapters/chapter_<word>/diagrams/`, then run
-`PY scripts/diagrams.py <n>`. **Look at every rendered PNG** (Read tool) and fix overlapping text,
-clipping or unreadable labels before moving on.
+Create each planned figure following `diagram-standard.md`, then `PY scripts/diagrams.py <n>`.
+**Look at every rendered PNG** (Read tool) and fix overlaps, clipping or unreadable labels.
 
-### Stage 6: check
-`PY scripts/check.py <n>`. Fix every ERROR. Fix warnings unless there's a clear reason not to.
-Then run `PY scripts/refs.py verify --chapter <n>`. Then do a self-review pass and fix what you
-find:
-- every factual claim is supported by a cited source that says it;
-- each guideline requirement and each objective the chapter must address is covered;
-- the writing follows writing-guide.md (plain English, terms defined, no filler, no
-  AI-typical phrasing);
-- a varied mix of paragraphs, tables, figures and lists, with no long walls of text.
-
-### Stage 7: build
-`PY scripts/build.py chapter <n>` (add `--pdf` if the user wants a PDF). If Word is holding the file
-open, ask the user to close it.
-
-### Stage 8: report
-`PY scripts/state.py finish <n>`, then `git add -A && git commit -qm "chapter <n>: new draft v<k>"`.
-Tell the user, briefly:
-- the output path;
-- word count, figures, tables and sources (from check.py);
-- `TODO-DATA` items they need to supply;
-- anything you were unsure about.
+### Stages 6–8: check, build, report
+1. `PY scripts/check.py <n>`. Fix every ERROR (unverified/retracted/edited sources, missing template
+   sections or elements, copied sentences, quotes not found in the source, broken labels). Fix
+   warnings unless there's a clear reason not to. Then self-review: every claim supported by a source
+   that says it; every requirement and objective covered; plain English; varied blocks.
+2. `PY scripts/pipeline.py finish <n> [--pdf]`: diagrams → check → verify → build → compliance →
+   state → git snapshot. If it stops, fix what it reports and run it again. If Word holds the file
+   open, ask the user to close it.
+3. Tell the user briefly: project and output path; words/figures/tables/sources (check.py);
+   guideline requirements met (`compliance.md`); `TODO-DATA` items they must supply; anything unsure.
 
 ---
 
 ## EDIT mode
 
-`PY scripts/state.py start <n> edit "<the feedback, summarised>"`
+The feedback may be typed, pasted, a file in the project's `feedback/`, or a path. Read files fully
+(.docx via pandoc, .pdf with Read). For a document covering several chapters, take only this
+chapter's comments and mention the others.
 
-The feedback may be typed in chat, pasted text, a file in `config/feedback/`, or a path the user
-gives. Read files fully (.docx: use pandoc to convert to text; .pdf: Read tool). For a supervisor
-document covering several chapters, only take the comments meant for this chapter, and mention
-the others.
-
-If `output/chapters/chapter_<word>/chapter.md` does not exist but the chapter is in `config/existing/`, import it
-first: `PY scripts/import_docx.py "<file>" <n>`. Read `import_report.md` and fix what it lists
-(unlinked references: find them with research.py or refs.py; unconverted citations: convert
-them by hand; captions).
+If `chapter.md` does not exist but the chapter is in `existing/`, import it first:
+`PY scripts/import_docx.py "<file>" <n>`, then fix what `import_report.md` lists.
 
 ### Stage 1: plan
-Break the feedback into numbered, specific concerns. For each one, name the section(s) affected
-and the planned fix. **Only ask the user if a concern is genuinely ambiguous.** Otherwise continue.
+Break the feedback into numbered, specific concerns, each with the affected section(s) and fix.
+Check each fix against the guideline requirements (`context.py <n> --brief`): never remove or rename
+a template section to satisfy feedback without telling the user. Only ask if genuinely ambiguous.
 
-### Stages 2–3: research and verify (only if needed)
-Run them only when a concern needs new evidence (e.g. "needs more recent sources", "support this
-claim", "compare more frameworks").
+### Stages 2–3: research and verify (only if a concern needs new evidence)
 
 ### Stage 4: write
-Change only what the concerns require. Keep the rest of the chapter word for word. Keep labels
-(`{#fig:..}`, `{#tbl:..}`, `{#sec:..}`) stable so cross-references survive.
+Change only what the concerns require. Keep the rest word for word, and keep labels stable.
 
-### Stages 5–7: diagrams, check, build
-Same as NEW mode. The build creates the next version (v2, v3, ...), so earlier versions are kept.
-
-### Stage 8: report
-Add an entry to `output/chapters/chapter_<word>/revisions.md` (create it if missing):
+### Stages 5–8
+Add an entry to `revisions.md` (create it if missing):
 
 ```markdown
 ## Revision <k> - <date> (chapter_<word>_v<k>.docx)
@@ -205,18 +182,20 @@ Source: <supervisor feedback file / chat request>
 | 1 | ... | ... | 2.3, 2.4 |
 ```
 
-Then run `PY scripts/build.py changes <n>`, `state.py finish`, and commit
-`git commit -qm "chapter <n>: revision v<k> - <summary>"`.
-Show the user the concern table and the output paths.
+Then `PY scripts/pipeline.py finish <n>`. In edit mode it also builds the "changes made" document
+and a **tracked-changes** version against the previous build (`build.py redline <n>`).
+Show the user the concern table and the output paths (new version, changes, tracked changes).
 
 ---
 
 ## COMBINE mode
 
-1. Run `PY scripts/check.py all`. Report problems, fix them if the user agrees, or build anyway with
-   `--force` if they want a draft.
-2. If `output/dissertation/front_matter/` is empty, offer to draft `01-declaration.md`, `02-abstract.md`
-   (written last: 250–350 words summarising problem, method, results, conclusion) and
-   `03-acknowledgements.md`. Each file has front matter `title: ABSTRACT` and so on.
-3. Run `PY scripts/build.py combine [--chapters 1 2 3] [--pdf]`.
-4. Commit and report the path.
+1. `PY scripts/check.py all` (chapters and appendices). Report problems; fix them if the user agrees,
+   or build a draft with `--force` if they want one.
+2. If the project's `output/dissertation/front_matter/` is empty, offer to draft `01-declaration.md`,
+   `02-abstract.md` (written last; follow the guideline's abstract rules if the spec has them,
+   otherwise 250–350 words) and `03-acknowledgements.md` (and `04-abbreviations.md` if useful). Each
+   has front matter `title: ABSTRACT` and so on.
+3. `PY scripts/project.py commit "before: combine"`, then
+   `PY scripts/build.py combine [--chapters 1 2 3] [--pdf | --pdfa]`.
+4. `PY scripts/project.py commit "dissertation v<k>"` and report the path.

@@ -5,9 +5,12 @@ Every figure in the dissertation must meet this standard. It has three parts:
 `scripts/diagrams.py` and `scripts/check.py` enforce the measurable rules and block the build on
 failure. The rest you check by **looking at every rendered PNG** with the Read tool.
 
-Files: sources and PNGs go in `output/chapters/chapter_<word>/diagrams/`, named after the label
-(`use-case.drawio` -> `use-case.png` -> `{#fig:use-case}`). Render with
-`.venv/Scripts/python.exe scripts/diagrams.py <n>`.
+Files: sources and PNGs go in `projects/<name>/output/chapters/chapter_<word>/diagrams/`, named after the
+label (`use-case.drawio` -> `use-case.png` -> `{#fig:use-case}`). Render with `PY scripts/diagrams.py <n>`.
+
+**Which diagrams a chapter must contain is decided by the project's guidelines** (`requirements/spec.yaml`,
+`elements:`), not by this file. This file only says how to draw each kind well. Put the element's keyword
+(e.g. "use case") in the caption so `check.py` can see the requirement is met.
 
 ---
 
@@ -27,10 +30,10 @@ Files: sources and PNGs go in `output/chapters/chapter_<word>/diagrams/`, named 
 | Gantt chart | the project plan | **figlib chart (`.py`)** with `barh` bars and diamond milestones (Mermaid's Gantt text is too small in print) | phases on the y-axis, weeks on the x-axis, milestones labelled |
 | Timeline | the history of a field | Mermaid `timeline` | |
 
-### UML (department guidelines: chapters 2 and 3)
+### UML
 | Diagram | Tool | Notation essentials |
 |---|---|---|
-| Use case (**mandatory**, chapter 2) | draw.io | stick-figure actors outside a system boundary rectangle labelled with the system name; use cases as ellipses with verb phrases; `«include»` / `«extend»` as dashed open arrows |
+| Use case | draw.io | stick-figure actors outside a system boundary rectangle labelled with the system name; use cases as ellipses with verb phrases; `«include»` / `«extend»` as dashed open arrows |
 | Activity | Mermaid `flowchart TB` | filled start node, rounded actions, diamond decisions with guards `[valid]`, fork/join bars, swimlanes as `subgraph` per actor |
 | Class | Mermaid `classDiagram` | `+public -private` attributes with types, operations with parameters, associations with multiplicities `"1" --> "0..*"`, inheritance, composition |
 | Object | draw.io | boxes titled `name : Class` **underlined** (`fontStyle=4`), attribute values `id = 42`, plain links |
@@ -39,12 +42,12 @@ Files: sources and PNGs go in `output/chapters/chapter_<word>/diagrams/`, named 
 | State machine | Mermaid `stateDiagram-v2` | `[*]` start and end, states named as conditions ("Quarantined"), transitions `event [guard] / action` |
 | Component / package | Mermaid `flowchart` with subgraphs | provided/required interfaces named on links |
 | Deployment | draw.io | nodes as 3D boxes (`shape=cube`) for devices (ESP32, Raspberry Pi, cloud VM), artefacts inside, links labelled with protocol (MQTT/TLS, HTTPS) |
-| Process design (pre/postconditions) | **Text block or table** | `Context`, `Pre:`, `Post:` as in the chapter 3 guideline |
+| Process design (pre/postconditions) | **Text block or table** | `Context`, `Pre:`, `Post:` (follow the guideline's own layout if it gives one) |
 
 ### Architecture and network
 | Diagram | Tool | Notation essentials |
 |---|---|---|
-| System / conceptual architecture | draw.io (complex) or Mermaid (simple) | tiers or layers as labelled containers; hardware, software, protocols and transmission media (wired / Wi-Fi) labelled on links (guideline 2.5.2) |
+| System / conceptual architecture | draw.io (complex) or Mermaid (simple) | tiers or layers as labelled containers; hardware, software, protocols and transmission media (wired / Wi-Fi) labelled on links |
 | Network topology (logical / physical) | draw.io | hierarchical core / distribution / access layers, VLAN IDs and subnets (VLSM) on segments, device names and models |
 | Threat model / attack tree / attack flow | draw.io or Mermaid | the attacker as an external entity, trust boundaries as dashed red containers, numbered attack steps |
 | ML pipeline / data pipeline | Mermaid `flowchart LR` | stages as processes, datasets as stores `[(Dataset)]`, model artefacts labelled |

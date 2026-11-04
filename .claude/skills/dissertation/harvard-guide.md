@@ -1,6 +1,8 @@
 # Harvard citations (Cite Them Right) in pandoc syntax
 
-The build formats everything automatically from the CSL style. Write citations only in pandoc
+The build formats everything automatically from the project's CSL style (`references.style`:
+harvard, apa, ieee or a .csl file). The pandoc syntax below is the same for every style; only the
+output differs (e.g. IEEE prints `[1]`). Write citations only in pandoc
 syntax, and never type a formatted citation like "(Smith, 2020)" by hand.
 
 | You write | Output in Word |

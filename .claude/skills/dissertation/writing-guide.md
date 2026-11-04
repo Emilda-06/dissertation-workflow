@@ -57,7 +57,18 @@ Rules:
 - A typical 5,000-word chapter has 3–6 figures, 2–5 tables and 2–5 lists. The literature review
   should include at least one summary table of related studies.
 
-## Chapter structures (default; a guideline in config/guidelines/ overrides these)
+## Chapter structures (defaults)
+
+These defaults (also in `scripts/defaults.py`) are **merged with** the project's guidelines, never
+used instead of them. Run `PY scripts/guidelines.py outline <n>` to see the merged skeleton:
+- **template** sections come from the guideline: always present, in the guideline's order, with its
+  titles word for word (unless the spec says `title_policy: adapt`). Never drop, merge or reorder them.
+- **default** sections are standard parts the guideline does not mention; add them where they fit.
+- **expansion**: a short template is a floor, not a ceiling. Give each template section the depth a
+  dissertation needs (2-4 subsections, evidence, a figure or table) so the chapter reaches its length.
+- Put `{#sec:<id>}` (the spec id) on each template heading, and `<!-- req: <ID> -->` in the paragraph
+  that meets each free-text requirement, so `check.py` and `compliance.md` can trace them.
+
 
 - **Introduction:** Introduction; Background of the study; Problem statement; Aim; Objectives;
   Research questions; Justification / significance; Scope and delimitations; Limitations;

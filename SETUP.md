@@ -1,7 +1,7 @@
 # Setting up the workflow
 
-This repository contains only the pipeline. Your own details, documents, chapters and references
-are created locally and are git-ignored, so nothing personal is ever committed.
+This repository contains only the pipeline. Your dissertations live in `projects\<name>\`, each with
+its own local git history; nothing personal is ever committed to this repository.
 Run `.venv\Scripts\python.exe scripts\doctor.py` at any time to see what's still missing
 (`OK` = done, `--` = still to do). Or open the assistant and choose **Status and setup**.
 
@@ -14,7 +14,8 @@ Run `.venv\Scripts\python.exe scripts\doctor.py` at any time to see what's still
 | Git | `winget install Git.Git` |
 | draw.io desktop | `winget install JGraph.Draw` |
 | Zotero 7 | `winget install DigitalScholar.Zotero` |
-| Microsoft Word | needed for the final build step (fields, table of contents, cover) |
+| Microsoft Word | optional but recommended (cover, contents, page numbers, PDF/A, tracked changes) |
+| LibreOffice | optional: PDFs on machines without Word |
 | Claude Code | https://claude.com/claude-code |
 
 Then, in this folder:
@@ -31,15 +32,30 @@ Create a `tools\` folder and put these in it (it is git-ignored):
 - `pandoc-crossref.exe` from https://github.com/lierdakil/pandoc-crossref/releases (a build matching your pandoc version)
 - `zotero-better-bibtex.xpi` from https://github.com/retorquere/zotero-better-bibtex/releases
 
-## 2. Your details: `config\project.yaml`
+## 2. Your project: `projects\<name>\project.yaml`
 
 ```
-copy config\project.example.yaml config\project.yaml
+.venv\Scripts\python scripts\project.py new my-thesis --title "My dissertation title"
 ```
 
-Fill in your title, name, student ID, programme, department, university, supervisor and chapter plan.
-If your department gives chapter guidelines, put them in `config\guidelines\` and name them in the
-`guideline:` field of each chapter.
+This creates `projects\my-thesis\` (with its own git history) and makes it the active project. Fill in
+`project.yaml`: name, student ID, programme, department, university, supervisor, chapter plan and
+citation style (`harvard`, `apa`, `ieee` or a `.csl` file in the project's `templates\`).
+
+More dissertations: run `project.py new <another-name>` (add `--from my-thesis` to copy the department
+guidelines, cover and templates). Switch with `project.py use <name>`, see them all with
+`project.py list`. Every script also accepts `--project <name>`.
+
+Moving from the old single-project layout (`config\project.yaml`)? Run `project.py migrate <name>`.
+
+## 2b. Department guidelines and templates (optional)
+
+Put the files your department gives you (a handbook, chapter templates, marking guides) into
+`projects\<name>\guidelines\`. **Any file names work**: one file per chapter, or one handbook for all
+chapters. The assistant runs `guidelines.py scan`, which finds the chapter parts and maps them to your
+chapter plan (it asks you only when unsure), then records each requirement with a quote from the
+guideline in `requirements\spec.yaml` for you to approve. A Word file that is only a formatting
+template (styles, little text) is detected and used for the document's styles.
 
 ## 3. Private settings: `.env`
 
@@ -50,19 +66,20 @@ copy .env.example .env
 Set `CONTACT_EMAIL` to your own email address. Unpaywall needs it to find free full texts, and OpenAlex
 and Crossref use it for faster, more reliable access. It is sent only to those three services.
 
-## 4. Cover page: `config\cover.docx` (optional)
+## 4. Cover page: `projects\<name>\cover.docx` (optional)
 
-Make your university's cover page in Word and save it as `config\cover.docx`. Use these placeholders;
-they are filled from `config\project.yaml` on every build:
+Make your university's cover page in Word and save it as `projects\<name>\cover.docx`. Use these
+placeholders anywhere (text, tables, text boxes, headers); they are filled from `project.yaml` on every build:
 `{{TITLE}}`, `{{STUDENT_NAME}}`, `{{STUDENT_ID}}`, `{{PROGRAMME}}`, `{{SUPERVISOR}}`, `{{DEPARTMENT}}`,
-`{{FACULTY}}`, `{{UNIVERSITY}}`, `{{DOCUMENT}}`, `{{DATE}}` (month and year of the build).
+`{{FACULTY}}`, `{{UNIVERSITY}}`, `{{DOCUMENT}}`, `{{DATE}}` (month and year of the build), `{{YEAR}}`,
+and any other field under `project:` in upper case.
 Without a cover, documents are built without one.
 
 ## 5. Your existing work (optional)
 
-- `config\existing\`: an earlier proposal or draft chapters (.docx). Add a short `NOTES.md` saying
+- `projects\<name>\existing\`: an earlier proposal or draft chapters (.docx). Add a short `NOTES.md` saying
   what each file is. The assistant can import a Word chapter into the workflow.
-- `config\feedback\`: supervisor feedback files (feedback can also be pasted in chat).
+- `projects\<name>\feedback\`: supervisor feedback files (feedback can also be pasted in chat).
 
 ## 6. Zotero
 
@@ -71,12 +88,15 @@ Without a cover, documents are built without one.
    with Zotero" is enabled.
 
 The pipeline talks to Zotero directly:
-- verified sources are **pushed** into Zotero (into whichever collection is selected in Zotero);
-- your Zotero library is **pulled** at every build, so anything you save in Zotero
-  (e.g. with the Zotero Connector browser extension) becomes citable once it is verified.
+- each project uses **its own Zotero collection** (`zotero.collection` in project.yaml, set to the
+  project name by `project.py new`). Create that collection in Zotero;
+- verified sources are **pushed** into that collection (the pipeline refuses, and writes an import
+  file instead, if a different collection is selected in the Zotero window);
+- only that collection is **pulled** at every build, so anything you save into it (e.g. with the Zotero
+  Connector) becomes citable once it is verified. Other projects' items never leak in.
 
-**Rule:** Zotero must be open while the workflow runs. It is started automatically when the
-assistant opens, and before any research, reference or build step. No Zotero account is required.
+Zotero is started automatically when the assistant opens and before runs and builds. A project that
+does not use Zotero can set `zotero.enabled: false`. No Zotero account is required.
 
 ## 7. Check
 
@@ -98,6 +118,6 @@ Run `.venv\Scripts\python.exe scripts\doctor.py`. All lines should show `OK`.
   *Write a new chapter / Revise a chapter / Build full dissertation / Status and setup*.
 - Or open Claude Code in this folder and just say what you want ("my supervisor says the
   problem statement is vague"). It works out the rest.
-- Finished documents: `output\chapters\chapter_<n>\docs\chapter_<n>_vX.docx` and
-  `output\dissertation\docs\dissertation_vX.docx`. Never edit these by hand; ask for changes instead,
+- Finished documents: `projects\<name>\output\chapters\chapter_<n>\docs\chapter_<n>_vX.docx` and
+  `projects\<name>\output\dissertation\docs\dissertation_vX.docx`. Never edit these by hand; ask for changes instead,
   and a new version is built.
