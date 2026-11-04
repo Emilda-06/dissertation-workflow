@@ -41,8 +41,9 @@ reference, writes, draws diagrams, runs a quality check and builds a new numbere
 ## Requirements
 
 Built and tested on **Windows 10/11**, with tests running on Windows and Linux. Microsoft Word gives
-the best final document (cover, roman/arabic page numbers, filled contents); without it, builds use
-LibreOffice or produce a .docx whose contents fill in when it is opened.
+the best final document (cover, roman/arabic page numbers, filled contents, tracked changes); without it,
+LibreOffice fills the contents and makes the PDF / PDF-A (arabic page numbers throughout), or a plain .docx
+is produced whose contents fill in when it is opened.
 
 ### System tools
 
@@ -58,7 +59,7 @@ LibreOffice or produce a .docx whose contents fill in when it is opened.
 | [Zotero 7](https://www.zotero.org/) | 7.x | reference library (optional per project; open while it is used) | `winget install DigitalScholar.Zotero` |
 | [Better BibTeX for Zotero](https://github.com/retorquere/zotero-better-bibtex/releases) | latest | lets the pipeline talk to Zotero | Zotero > Tools > Plugins > install the `.xpi` |
 | Microsoft Word | 2016+ (optional) | best final document: fields, contents, cover, PDF/A, tracked changes | Microsoft 365 / Office |
-| LibreOffice | any (optional) | PDFs when Word is not installed | libreoffice.org |
+| LibreOffice | any (optional) | contents, PDF and PDF/A when Word is not installed | libreoffice.org (per-user install works; it runs with its own profile, never yours) |
 
 ### Python packages (`requirements.txt`, pinned; `requirements-dev.txt` adds pytest)
 

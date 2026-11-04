@@ -16,7 +16,7 @@ Appendices (output/appendices/appendix_<x>/appendix.md) follow the reference lis
 
 Finishing (format.finalizer in project.yaml): auto | word | libreoffice | none.
   word         Microsoft Word fills the contents/lists, inserts the cover, numbers pages (roman/arabic), PDF.
-  libreoffice  PDF through LibreOffice; contents update when the .docx is opened.
+  libreoffice  LibreOffice fills the contents/lists (scripts/lo_finalize.py) and makes PDF / PDF-A; arabic page numbers.
   none         .docx only; contents update when the document is opened.
 """
 from __future__ import annotations
