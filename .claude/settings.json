@@ -26,7 +26,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cd \"$CLAUDE_PROJECT_DIR\" && { if [ -x .venv/Scripts/python.exe ]; then PY=.venv/Scripts/python.exe; else PY=.venv/bin/python; fi; \"$PY\" scripts/ensure_zotero.py; \"$PY\" scripts/project.py current 2>/dev/null | sed 's/^/Active dissertation project: /'; }",
+            "command": "cd \"$CLAUDE_PROJECT_DIR\" && { if [ -x .venv/Scripts/python.exe ]; then PY=.venv/Scripts/python.exe; else PY=.venv/bin/python; fi; \"$PY\" scripts/ensure_zotero.py; echo \"Dissertation projects:\"; \"$PY\" scripts/project.py list 2>/dev/null; }",
             "timeout": 150
           }
         ]

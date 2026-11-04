@@ -4,9 +4,10 @@ Runs under LibreOffice's own Python (it needs the 'uno' module). Opens the docum
 refreshes the table of contents and the lists of figures/tables, saves the .docx and optionally
 exports a PDF (PDF/A-2b with --pdfa).
 
-Usage:  <libreoffice>/program/python lo_finalize.py <file.docx> [--pdf] [--pdfa]
+Usage:  <libreoffice>/program/python lo_finalize.py <file.docx> [--pdf] [--pdfa] [--profile <dir>]
 """
 import os
+import socket
 import subprocess
 import sys
 import time
@@ -36,8 +37,10 @@ def main():
     docx = os.path.abspath(args[0])
     want_pdf, pdfa = "--pdf" in args or "--pdfa" in args, "--pdfa" in args
     soffice = os.path.join(os.path.dirname(sys.executable), "soffice")
-    port = 2000 + os.getpid() % 1000
-    profile = profile_dir()
+    with socket.socket() as s:                       # a free port, so parallel builds never collide
+        s.bind(("127.0.0.1", 0))
+        port = s.getsockname()[1]
+    profile = args[args.index("--profile") + 1] if "--profile" in args else profile_dir()
     proc = subprocess.Popen([soffice, "--headless", "--invisible", "--nologo", "--norestore",
                              f"-env:UserInstallation={uno.systemPathToFileUrl(profile)}",
                              f"--accept=socket,host=127.0.0.1,port={port};urp;"])

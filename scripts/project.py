@@ -12,13 +12,14 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import os
 import shutil
 import subprocess
 
 import yaml
 
-from common import (ACTIVE_FILE, PROJECTS, ROOT, SHARED_CONFIG, SLUG_RE, Project, active_slug, die, init_cli,
-                    legacy_layout, list_projects, project, slugify)
+from common import (ACTIVE_FILE, PROJECTS, ROOT, SHARED_CONFIG, SLUG_RE, Project, active_slug, active_source, die,
+                    init_cli, legacy_layout, list_projects, project, project_title, slugify)
 
 PROJECT_GITIGNORE = """\
 # Generated per project by the dissertation workflow
@@ -117,25 +118,42 @@ def write_yaml(path, cfg):
 
 
 def cmd_list(args):
-    act = active_slug()
+    act, how = active_source()
     found = list_projects()
     if not found:
         print("no projects yet - create one with: project.py new <name> --title \"...\"")
         if legacy_layout():
             print("(an old single-project setup was found in config/ - move it with: project.py migrate <name>)")
         return
-    for s in found:
-        cfg = yaml.safe_load((PROJECTS / s / "project.yaml").read_text(encoding="utf-8")) or {}
+    print(f"  {'PROJECT':<24} {'CHAPTERS':<9} {'LAST CHANGE':<17} TITLE")
+    for s_ in found:
+        root = PROJECTS / s_
+        cfg = yaml.safe_load((root / "project.yaml").read_text(encoding="utf-8")) or {}
         title = (cfg.get("project") or {}).get("title", "")
-        print(f"{'*' if s == act else ' '} {s:<24} {title}")
+        written = len(list((root / "output" / "chapters").glob("chapter_*/chapter.md")))
+        planned = len(cfg.get("chapters") or {})
+        last = git(Project(root), "log", "-1", "--format=%ad", "--date=format:%Y-%m-%d %H:%M").stdout.strip()
+        print(f"{'*' if s_ == act else ' '} {s_:<24} {f'{written}/{planned}':<9} {last or '-':<17} {title}")
+    if act:
+        print(f"\n* = active project ({how}). Switch with: project.py use <name>")
+    else:
+        print("\nno active project: choose one with project.py use <name>")
 
 
 def cmd_use(args):
     slug = check_slug(args.name)
     if slug not in list_projects():
         die(f"no project '{slug}'. Known: {', '.join(list_projects()) or 'none'}")
+    before = ACTIVE_FILE.read_text(encoding="utf-8").strip() if ACTIVE_FILE.exists() else ""
     set_active(slug)
-    print(f"active project: {slug}")
+    title = project_title(slug)
+    if before and before != slug:
+        print(f"switched active project: {before} -> {slug}" + (f" ({title})" if title else ""))
+    else:
+        print(f"active project: {slug}" + (f" ({title})" if title else ""))
+    if os.environ.get("DISSERTATION_PROJECT") and os.environ["DISSERTATION_PROJECT"] != slug:
+        print(f"note: DISSERTATION_PROJECT={os.environ['DISSERTATION_PROJECT']} is set in this shell and still "
+              "wins over the active project")
 
 
 def cmd_current(args):

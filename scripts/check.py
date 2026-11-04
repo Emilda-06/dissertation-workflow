@@ -247,7 +247,6 @@ def main():
     if args.json:
         print(json.dumps(results, indent=2))
     else:
-        print(f"[project: {project().slug}]")
         for r in results:
             report(r)
     sys.exit(2 if any(r["errors"] for r in results) else 0)

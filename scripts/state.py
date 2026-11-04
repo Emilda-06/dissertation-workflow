@@ -62,7 +62,7 @@ def main():
     f = sub.add_parser("finish"); f.add_argument("n", type=int)
     a = p.parse_args()
     now = datetime.now().isoformat(timespec="seconds")
-    print(f"[project: {project().slug}]")
+    project()                                    # resolves (and announces) the project before anything else
     if a.cmd == "show":
         nums = [a.n] if a.n is not None else chapters_with_state()
         if not nums:

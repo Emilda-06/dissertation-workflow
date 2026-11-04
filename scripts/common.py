@@ -124,17 +124,52 @@ def select_project(slug: str | None) -> None:
     _selected = slug
 
 
-def active_slug() -> str | None:
-    """The active project's slug, or None if none can be determined."""
-    for cand in (_selected, os.environ.get("DISSERTATION_PROJECT")):
-        if cand:
-            return cand
+def active_source() -> tuple[str | None, str]:
+    """(slug, how it was chosen) for the active project."""
+    if _selected:
+        return _selected, "--project"
+    if os.environ.get("DISSERTATION_PROJECT"):
+        return os.environ["DISSERTATION_PROJECT"], "DISSERTATION_PROJECT"
     if ACTIVE_FILE.exists():
         s = ACTIVE_FILE.read_text(encoding="utf-8").strip()
         if s:
-            return s
+            return s, "active project"
     found = list_projects()
-    return found[0] if len(found) == 1 else None
+    return (found[0], "the only project") if len(found) == 1 else (None, "")
+
+
+def active_slug() -> str | None:
+    """The active project's slug, or None if none can be determined."""
+    return active_source()[0]
+
+
+_announced: str | None = None
+
+
+def project_title(slug: str) -> str:
+    try:
+        cfg = yaml.safe_load((PROJECTS / slug / "project.yaml").read_text(encoding="utf-8")) or {}
+        return str((cfg.get("project") or {}).get("title", ""))
+    except (OSError, yaml.YAMLError):
+        return ""
+
+
+def announce(slug: str) -> None:
+    """Say once per command which project it works on (stderr, so --json output stays clean)."""
+    global _announced
+    if _announced == slug or os.environ.get("DISSERTATION_QUIET") == "1":
+        return
+    _announced = slug
+    _, how = active_source()
+    title = project_title(slug)
+    line = f"== Project: {slug}" + (f" - {title}" if title else "") + f"  [{how}] =="
+    try:
+        default = ACTIVE_FILE.read_text(encoding="utf-8").strip() if ACTIVE_FILE.exists() else ""
+    except OSError:
+        default = ""
+    if default and default != slug:
+        line += f"  (the active project is '{default}'; this command uses '{slug}')"
+    print(line, file=sys.stderr, flush=True)
 
 
 def legacy_layout() -> bool:
@@ -161,6 +196,7 @@ def project(required: bool = True) -> Project | None:
             return None
         die(f"project '{slug}' not found (expected {p.config_file}). Known projects: "
             f"{', '.join(list_projects()) or 'none'}")
+    announce(slug)
     return p
 
 

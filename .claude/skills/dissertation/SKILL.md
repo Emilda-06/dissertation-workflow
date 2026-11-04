@@ -12,7 +12,17 @@ Read `CLAUDE.md` (rules) first.
 
 `PY` means the project venv's Python: `.venv/Scripts/python.exe` on Windows, `.venv/bin/python`
 elsewhere (Bash tool, from the workflow root). Every script works on the **active project**; add
-`--project <name>` to target another one. Always say which project you are working on.
+`--project <name>` to target another one.
+
+**Project discipline (several dissertations share this folder):**
+- Once the project for this conversation is known, pass `--project <name>` on **every** command. The
+  active project (`projects/.active`) is shared by all sessions on this computer, so another session
+  switching it must never redirect your work.
+- Every command prints `== Project: <name> - <title> [how it was chosen] ==` first. Check it matches
+  the project you mean before acting on the output; stop if it does not.
+- Start every reply about the work with the project name (e.g. "**[thesis-a]** Chapter 2 built ...").
+- Never copy chapters, notes, sources, guidelines or style settings from one project into another
+  unless the user asks (`project.py new --from` copies department material deliberately).
 
 ## Menu (when there are no arguments, or the request is vague)
 

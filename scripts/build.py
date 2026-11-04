@@ -283,10 +283,15 @@ def fill_placeholders(src: Path, out: Path, values: dict[str, str]) -> int:
     return count
 
 
-def lo_profile_arg() -> str:
-    """LibreOffice runs with the workflow's own profile (never the user's; see lo_finalize.py)."""
+def lo_profile_dir() -> Path:
+    """LibreOffice runs with the workflow's own profile, one per project, so builds of different
+    projects can run at the same time without locking each other (never the user's profile)."""
     base = Path(os.environ.get("LOCALAPPDATA") or Path.home() / ".local" / "share")
-    return f"-env:UserInstallation={(base / 'dissertation-workflow' / 'libreoffice-profile').as_uri()}"
+    return base / "dissertation-workflow" / f"libreoffice-profile-{project().slug}"
+
+
+def lo_profile_arg() -> str:
+    return f"-env:UserInstallation={lo_profile_dir().as_uri()}"
 
 
 def docx_to_png(docx: Path, out: Path) -> Path | None:
@@ -410,7 +415,8 @@ def libreoffice_finalize(docx: Path, want_pdf: bool, pdfa: bool) -> bool:
     lo_python = next((p for p in (soffice.parent / "python.exe", soffice.parent / "python") if p.exists()), None)
     if lo_python:
         flags = (["--pdfa"] if pdfa else ["--pdf"]) if want_pdf else []
-        r = subprocess.run([str(lo_python), str(ROOT / "scripts" / "lo_finalize.py"), str(docx), *flags],
+        r = subprocess.run([str(lo_python), str(ROOT / "scripts" / "lo_finalize.py"), str(docx), *flags,
+                            "--profile", str(lo_profile_dir())],
                            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=900)
         msg = (r.stdout + r.stderr).strip()
         print(f"  libreoffice: {msg[-400:]}")

@@ -99,7 +99,7 @@ def main():
     if missing:
         die(f"chapter {missing[0]} has no chapter.md in project '{project().slug}'")
     corpus = textsim.build_corpus()
-    print(f"[project: {project().slug}]  compared with {len(corpus.docs)} source(s)")
+    print(f"compared with {len(corpus.docs)} source(s) of project '{project().slug}'")
     for n in nums:
         res = analyse(n, corpus)
         out = chapter_dir(n) / "similarity_report.md"

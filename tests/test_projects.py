@@ -159,3 +159,26 @@ def test_grid_tables_realigned():
     t = "+---+---+\n| a | b |\n+===+===+\n| long cell | x |\n+---+---+"
     out = common.realign_grid_tables(t).splitlines()
     assert len({len(line) for line in out}) == 1
+
+
+def test_every_command_announces_its_project(projects_dir):
+    make_project(projects_dir, "alpha", title="First thesis")
+    make_project(projects_dir, "beta", title="Second thesis")
+    (projects_dir / ".active").write_text("alpha")
+    r = run_script("state.py", "show", projects_dir=projects_dir, check=True)
+    assert "== Project: alpha - First thesis  [active project] ==" in r.stderr
+    r = run_script("state.py", "show", "--project", "beta", projects_dir=projects_dir, check=True)
+    assert "== Project: beta - Second thesis  [--project] ==" in r.stderr
+    assert "the active project is 'alpha'; this command uses 'beta'" in r.stderr
+    r = run_script("check.py", "1", "--json", "--project", "beta", projects_dir=projects_dir)
+    assert "== Project: beta" not in r.stdout                  # stdout stays machine-readable
+
+
+def test_list_and_use_are_explicit(projects_dir):
+    make_project(projects_dir, "alpha", title="First thesis")
+    make_project(projects_dir, "beta", title="Second thesis")
+    run_script("project.py", "use", "alpha", projects_dir=projects_dir, check=True)
+    out = run_script("project.py", "use", "beta", projects_dir=projects_dir, check=True).stdout
+    assert "switched active project: alpha -> beta (Second thesis)" in out
+    out = run_script("project.py", "list", projects_dir=projects_dir, check=True).stdout
+    assert "* beta" in out and "  alpha" in out and "0/6" in out and "active project (active project)" in out
