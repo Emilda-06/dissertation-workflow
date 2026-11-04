@@ -316,8 +316,12 @@ def check_no_doi(entry: dict, cfg: dict) -> tuple[str, list[str]]:
     r = http_get("https://api.openalex.org/works", cfg, params={"search": title[:200], "per-page": 5})
     found = False
     if r is not None and r.status_code == 200:
+        fam = normalize_title(first_author_family(entry))
         for w in r.json().get("results", []):
-            if title_similarity(title, [w.get("title") or ""]) >= 92:
+            names = [normalize_title(((a.get("author") or {}).get("display_name") or ""))
+                     for a in (w.get("authorships") or [])]
+            same_author = not fam or any(fam and fam in n.split() for n in names)
+            if title_similarity(title, [w.get("title") or ""]) >= 92 and same_author:
                 found = True
                 if w.get("is_retracted"):
                     return "retracted", ["OpenAlex marks this work as retracted - do not cite it"]
@@ -447,19 +451,22 @@ def zotero_settings(cfg: dict) -> dict:
     return {"collection": (z.get("collection") or "").strip(), "library_id": int(z.get("library_id", 1))}
 
 
-def selected_collection(cfg: dict) -> str | None:
-    """Name of the collection currently selected in the Zotero window (None if unknown)."""
+def collection_target(cfg: dict, name: str) -> tuple[str | None, list[str]]:
+    """Zotero's target id ('C12') for the collection called `name`, plus all collection names."""
     try:
         r = requests.post(f"{zotero_base(cfg)}/connector/getSelectedCollection", json={}, timeout=10)
-        if r.status_code == 200:
-            j = r.json()
-            return j.get("name") if j.get("id") else ""          # "" = library root selected
+        targets = r.json().get("targets") or [] if r.status_code == 200 else []
     except (requests.RequestException, ValueError):
-        pass
-    return None
+        return None, []
+    names = [t.get("name", "") for t in targets if str(t.get("id", "")).startswith("C")]
+    for t in targets:
+        if str(t.get("id", "")).startswith("C") and t.get("name", "").lower() == name.lower():
+            return t["id"], names
+    return None, names
 
 
 def cmd_sync_zotero(args, cfg):
+    """Send verified sources to Zotero, filed straight into this project's collection."""
     p = project()
     synced = set(json.loads(p.zotero_sync.read_text(encoding="utf-8"))) if p.zotero_sync.exists() else set()
     pending = [e for e in load_json_list(p.library) if e["id"] not in synced]
@@ -472,12 +479,13 @@ def cmd_sync_zotero(args, cfg):
     except requests.RequestException:
         running = False
     want = zotero_settings(cfg)["collection"]
-    blocked = ""
+    blocked, target = "", None
     if running and want:
-        sel = selected_collection(cfg)
-        if sel is not None and sel.lower() != want.lower():
-            blocked = (f"Zotero has '{sel or 'My Library (no collection)'}' selected, but this project uses the "
-                       f"collection '{want}'. Select '{want}' in the Zotero window and run sync-zotero again.")
+        target, names = collection_target(cfg, want)
+        if target is None:
+            blocked = (f"Zotero has no collection named '{want}' (found: {', '.join(names) or 'none'}). Create it "
+                       "in Zotero (File > New Collection) or fix zotero.collection in project.yaml, then run "
+                       "sync-zotero again.")
     failed = []
     for e in pending:
         item = {k: v for k, v in e.items() if k != "_source"}
@@ -486,16 +494,23 @@ def cmd_sync_zotero(args, cfg):
         if not running or blocked:
             failed.append(item)
             continue
+        session = f"wf-{e['id']}-{int(time.time() * 1000)}"
         # the connector expects the raw file text (not parsed JSON) and a session id
-        r = requests.post(f"{base}/connector/import", params={"session": f"wf-{e['id']}-{int(time.time())}"},
+        r = requests.post(f"{base}/connector/import", params={"session": session},
                           data=json.dumps([item], ensure_ascii=False).encode("utf-8"),
                           headers={"Content-Type": "text/plain"}, timeout=60)
-        if r.status_code in (200, 201):
-            synced.add(e["id"])
-            print(f"sent    {e['id']}")
-        else:
+        if r.status_code not in (200, 201):
             print(f"FAILED  {e['id']} (HTTP {r.status_code})")
             failed.append(item)
+            continue
+        if target:
+            # move the saved item into the project's collection (what the browser connector does)
+            u = requests.post(f"{base}/connector/updateSession", json={"sessionID": session, "target": target},
+                              timeout=30)
+            if u.status_code != 200:
+                print(f"note    {e['id']} saved, but could not be filed into '{want}' (HTTP {u.status_code})")
+        synced.add(e["id"])
+        print(f"sent    {e['id']}")
     save_json(p.zotero_sync, sorted(synced))
     if failed:
         out = p.refs_dir / "zotero_import.json"
@@ -519,7 +534,7 @@ def fetch_zotero_items(cfg: dict) -> list[dict] | None:
     zs = zotero_settings(cfg)
     if zs["collection"]:
         url = (f"{zotero_base(cfg)}/better-bibtex/export/collection?/{zs['library_id']}/"
-               f"{quote(zs['collection'])}.csljson")
+               f"{quote(zs['collection'])}.json")      # Better BibTeX: .json = Better CSL JSON
         try:
             r = requests.get(url, timeout=60)
         except requests.RequestException:
@@ -530,7 +545,9 @@ def fetch_zotero_items(cfg: dict) -> list[dict] | None:
                   file=sys.stderr)
             return []
         try:
-            return r.json()
+            # Zotero answers text/plain without a charset; requests would guess Latin-1 and garble
+            # every non-ASCII character (en dashes, accents), so decode the bytes as UTF-8 explicitly
+            return json.loads(r.content.decode("utf-8"))
         except ValueError:
             return []
     print("  ! no zotero.collection set in project.yaml: using the WHOLE Zotero library (not isolated per "

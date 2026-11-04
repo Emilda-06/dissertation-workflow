@@ -349,6 +349,7 @@ KNOWN_PATHS = {
                "/Applications/Zotero.app/Contents/MacOS/zotero", "/usr/bin/zotero", "/opt/zotero/zotero"],
     "soffice": [r"C:\Program Files\LibreOffice\program\soffice.exe",
                 r"C:\Program Files (x86)\LibreOffice\program\soffice.exe",
+                os.path.expandvars(r"%LOCALAPPDATA%\Programs\LibreOffice\program\soffice.exe"),
                 "/Applications/LibreOffice.app/Contents/MacOS/soffice"],
 }
 

@@ -187,3 +187,15 @@ def test_pipeline_begin_resumes(proj, projects_dir):
     assert "IN PROGRESS" in r.stdout
     r = run_script("pipeline.py", "begin", "1", "new", "write it", projects_dir=projects_dir, check=True)
     assert "resuming" in r.stdout
+
+
+@pytest.mark.skipif(not HAVE_PANDOC, reason="pandoc and pandoc-crossref are not installed")
+def test_verified_entry_wins_over_zotero_copy(proj, projects_dir):
+    add_verified_source(proj)
+    common.save_json(proj.zotero_export, [{"id": "smith2021edge", "type": "article-journal",
+                                           "title": "Garbled zotero copy", "author": [{"family": "Smith"}],
+                                           "issued": {"date-parts": [[2021]]}}])
+    write_chapter(proj, 1, "## Introduction\n\nA claim [@smith2021edge].\n")
+    run_script("build.py", "chapter", "1", "--force", "--no-zotero", projects_dir=projects_dir, check=True)
+    text = "\n".join(p.text for p in Document(str(proj.chapters / "chapter_one" / "docs" / "chapter_one_v1.docx")).paragraphs)
+    assert "Edge intelligence security survey" in text and "Garbled" not in text

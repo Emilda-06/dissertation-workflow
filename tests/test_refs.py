@@ -109,20 +109,47 @@ def test_zotero_pull_uses_project_collection(proj, monkeypatch):
 
     def fake_get(url, **kw):
         seen["url"] = url
-        return Resp(data=[{"id": "doe2022x", "type": "article-journal", "title": "T",
-                           "issued": {"date-parts": [["2022"]]}}])
+        body = '[{"id": "doe2022x", "type": "article-journal", "title": "Café networks", "page": "10–20", ' \
+               '"issued": {"date-parts": [["2022"]]}}]'
+        # Zotero sends UTF-8 as text/plain without a charset (requests would guess Latin-1)
+        return Resp(content=body.encode("utf-8"), headers={"content-type": "text/plain"})
     monkeypatch.setattr(refs.requests, "get", fake_get)
     assert refs.pull_zotero(cfg, quiet=True) == 1
-    assert "/export/collection?/1/My%20Thesis.csljson" in seen["url"]
-    assert common.load_json_list(proj.zotero_export)[0]["issued"] == {"date-parts": [[2022]]}
+    assert "/export/collection?/1/My%20Thesis.json" in seen["url"]
+    item = common.load_json_list(proj.zotero_export)[0]
+    assert item["issued"] == {"date-parts": [[2022]]}
+    assert item["page"] == "10–20" and item["title"] == "Café networks"
 
 
-def test_zotero_push_refuses_wrong_collection(proj, monkeypatch):
+def test_zotero_push_files_items_into_project_collection(proj, monkeypatch):
+    cfg = load_config()
+    cfg["zotero"] = {"collection": "alpha"}
+    add_verified_source(proj)
+    posts = []
+
+    def fake_post(url, **kw):
+        posts.append((url.rsplit("/", 1)[-1], kw))
+        if url.endswith("getSelectedCollection"):
+            return Resp(data={"id": None, "name": "My Library", "targets": [
+                {"id": "L1", "name": "My Library"}, {"id": "C7", "name": "Alpha"}, {"id": "C8", "name": "beta"}]})
+        return Resp(status=201 if "import" in url else 200)
+    monkeypatch.setattr(refs.requests, "get", lambda url, **kw: Resp(status=200))
+    monkeypatch.setattr(refs.requests, "post", fake_post)
+    refs.cmd_sync_zotero(None, cfg)
+    update = [kw for name, kw in posts if name == "updateSession"]
+    assert update and update[0]["json"]["target"] == "C7"
+    imported = [kw for name, kw in posts if name.startswith("import")]
+    assert update[0]["json"]["sessionID"] == imported[0]["params"]["session"]
+    assert "Citation Key: smith2021edge" in imported[0]["data"].decode()
+    assert common.load_json_list(proj.zotero_sync) == ["smith2021edge"]
+
+
+def test_zotero_push_refuses_missing_collection(proj, monkeypatch):
     cfg = load_config()
     cfg["zotero"] = {"collection": "alpha"}
     add_verified_source(proj)
     monkeypatch.setattr(refs.requests, "get", lambda url, **kw: Resp(status=200))
-    monkeypatch.setattr(refs.requests, "post", lambda url, **kw: Resp(data={"id": 5, "name": "Other thesis"}))
+    monkeypatch.setattr(refs.requests, "post", lambda url, **kw: Resp(data={"targets": [{"id": "C1", "name": "Other"}]}))
     refs.cmd_sync_zotero(None, cfg)
     assert (proj.refs_dir / "zotero_import.json").exists()
     assert not proj.zotero_sync.exists() or common.load_json_list(proj.zotero_sync) == []

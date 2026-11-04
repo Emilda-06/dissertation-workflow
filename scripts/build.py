@@ -36,7 +36,8 @@ from docx.oxml.ns import qn
 from common import (IS_WINDOWS, NUMBER_WORDS, ROOT, SHARED_TEMPLATES, all_versions, appendix_file,
                     appendix_letter, chapter_dir, chapter_file, chapter_slug, chapter_title, die, ensure_zotero,
                     existing_appendices, existing_chapters, find_tool, init_cli, latest_version, load_config,
-                    load_json_list, next_version, project, read_front_matter, realign_grid_tables, require_tool)
+                    load_library, next_version, project, read_front_matter, realign_grid_tables, require_tool,
+                    save_json)
 from make_template import ensure_reference
 
 CSL_STYLES = {"harvard": "harvard-cite-them-right.csl", "apa": "apa.csl", "ieee": "ieee.csl"}
@@ -357,9 +358,13 @@ def run_pandoc(md: str, out: Path, cfg: dict, with_refs: bool = True, refs_headi
                 "-M", "link-citations=true", "-M", "lang=en-GB"]
         if refs_heading:
             cmd += ["-M", "reference-section-title=REFERENCES"]
-        for bib in (p.library, p.zotero_export):
-            if bib.exists() and load_json_list(bib):
-                cmd += ["--bibliography", str(bib)]
+        # one merged bibliography in which the verified pipeline entry always wins over a Zotero copy
+        # of the same key (pandoc would otherwise take whichever file comes last)
+        merged = [{k: v for k, v in e.items() if not k.startswith("_")} for e in load_library().values()]
+        if merged:
+            bib = p.build / "bibliography.json"
+            save_json(bib, merged)
+            cmd += ["--bibliography", str(bib)]
     r = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=p.root)
     for line in (r.stderr or "").splitlines():
         if line.strip():
