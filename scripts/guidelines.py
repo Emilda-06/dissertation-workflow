@@ -281,8 +281,9 @@ def assign(part: dict, entries: list[dict], path: Path, chapters: dict[int, dict
     t = match_title(stem, chapters)
     if t:
         return t[0], min(t[1], 0.85), f"file name: {t[2]}"
-    for e in entries[:15]:
-        if e["level"] or short_caps(clean(e["text"])):
+    for i, e in enumerate(entries[:15]):
+        title_like = i == 0 and len(clean(e["text"]).split()) <= 8 and not e["text"].rstrip().endswith(".")
+        if e["level"] or short_caps(clean(e["text"])) or title_like:
             b = chapter_boundary(e)
             if b and b[0] in chapters:
                 return b[0], 0.85, f"first heading says Chapter {b[0]}"
@@ -324,6 +325,11 @@ def text_cache(name: str) -> Path:
 def scan(cfg: dict, quiet: bool = False) -> dict:
     chapters = plan(cfg)
     overrides = load_mapping()
+    # older projects named guideline files per chapter in project.yaml: honour that as a manual mapping
+    for n, c in chapters.items():
+        for fname in str(c.get("guideline") or "").split(","):
+            if fname.strip():
+                overrides.setdefault(fname.strip(), {}).setdefault("*", n)
     manifest = {"version": 1, "generated": datetime.now().isoformat(timespec="seconds"), "files": {}}
     for f in guideline_files():
         rec = {"sha256": file_hash(f), "parts": []}
@@ -349,7 +355,7 @@ def scan(cfg: dict, quiet: bool = False) -> dict:
             rec["note"] = "looks like a Word formatting template (styles, little text): used for the document styles"
             manifest["files"][f.name] = rec
             continue
-        if words < 15:
+        if words == 0 or (f.suffix.lower() == ".pdf" and words < 15 * max(1, info.get("pages", 1))):
             rec["kind"] = "unreadable"
             rec["note"] = "almost no text could be extracted (scanned PDF?) - provide a text version"
             manifest["files"][f.name] = rec
