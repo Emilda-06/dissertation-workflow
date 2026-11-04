@@ -1,6 +1,8 @@
 """Automatic integrity checks used by check.py (rules 2, 3 and 4 in CLAUDE.md).
 
-1. Copying:   sentences that repeat downloaded full texts word for word (or nearly) outside quotation marks.
+1. Copying:   sentences that repeat a source word for word, closely paraphrase it (same structure with
+              synonyms swapped), or re-use the author's own earlier work, outside quotation marks;
+              research notes that copy their sources.
 2. Quotes:    a direct quote "..." [@key, p. N] must appear in that source's full text (on page N if known).
 3. Data:      in results chapters, reported numbers should be traceable to files in data/.
 
@@ -17,20 +19,9 @@ from chapterdoc import blocks, classify
 from common import (chapter_dir, chapter_file, init_cli, load_config, load_library, normalize_title, project,
                     read_front_matter, strip_code)
 
-SHINGLE = 8                 # words per shingle
-COPY_WARN = 0.5             # share of a sentence's shingles found in one source
-COPY_ERROR = 0.8
-MIN_SENTENCE_WORDS = 12
+COPY_ERROR = 0.8            # share of a sentence's 8-word sequences found in one source
 QUOTE_RE = re.compile(r"[\"“]([^\"”]{8,600})[\"”]\s*\[(?:[^\]]*?)@([\w:.#$%&\-+?<>~/]+)(?:,\s*(pp?\.?\s*[\d]+(?:\s*[–\-]\s*\d+)?))?[^\]]*\]")
 NUM_RE = re.compile(r"(?<![\w.@:/#-])[-+]?\d{1,3}(?:,\d{3})+(?:\.\d+)?%?|(?<![\w.@:/#-])[-+]?\d+(?:\.\d+)?%?")
-
-
-def words(text: str) -> list[str]:
-    return normalize_title(text).split()
-
-
-def shingles(ws: list[str], n: int = SHINGLE) -> list[int]:
-    return [hash(" ".join(ws[i:i + n])) for i in range(len(ws) - n + 1)]
 
 
 def safe_name(doi: str) -> str:
@@ -53,52 +44,58 @@ def fulltext_for_key(key: str, lib: dict) -> str | None:
     return None
 
 
-def prose(body: str) -> str:
-    """Paragraph and list text without code, quotes in quotation marks, citations and markup."""
-    out = []
-    for b in blocks(strip_code(body)):
-        if classify(b) not in ("paragraph", "list"):
-            continue
-        b = re.sub(r"[\"“][^\"”]{0,600}[\"”]", " ", b)          # quoted text is allowed to match
-        b = re.sub(r"\[[^\]]*@[^\]]*\]|@[\w:.\-]+", " ", b)
-        b = re.sub(r"<!--.*?-->", " ", b, flags=re.S)
-        out.append(b)
-    return "\n\n".join(out)
+PARA_WARN = 0.7             # close paraphrase (same structure, synonyms swapped)
+PARA_ERROR = 0.85
 
 
-def sentences(text: str) -> list[str]:
-    return [s.strip() for s in re.split(r"(?<=[.!?])\s+(?=[A-Z(])|\n\s*\n", text) if s.strip()]
-
-
-def copy_check(body: str) -> tuple[list[str], list[str]]:
+def classify_matches(matches) -> tuple[list[str], list[str]]:
     errors, warnings = [], []
-    index: dict[int, set[str]] = {}
-    for f in fulltext_files():
-        ws = words(f.read_text(encoding="utf-8", errors="replace"))
-        for h in shingles(ws):
-            index.setdefault(h, set()).add(f.stem)
-    if not index:
-        return errors, warnings
-    for s in sentences(prose(body)):
-        ws = words(s)
-        if len(ws) < MIN_SENTENCE_WORDS:
-            continue
-        sh = shingles(ws)
-        per_source: dict[str, int] = {}
-        for h in sh:
-            for src in index.get(h, ()):
-                per_source[src] = per_source.get(src, 0) + 1
-        if not per_source:
-            continue
-        src, hits = max(per_source.items(), key=lambda kv: kv[1])
-        share = hits / len(sh)
-        start = " ".join(s.split()[:9])
-        if share >= COPY_ERROR:
-            errors.append(f"sentence copied from a source ({share:.0%} identical to {src}): '{start} ...' - "
-                          "rewrite it in your own words, or quote it with a page number")
-        elif share >= COPY_WARN:
-            warnings.append(f"sentence very close to a source ({share:.0%} overlap with {src}): '{start} ...'")
+    for m in matches:
+        start = " ".join(m.sentence.split()[:9])
+        where = f"{m.source}" + (f", p. {m.page}" if m.page else "")
+        if m.kind == "own":
+            warnings.append(f"sentence repeats your earlier work ({m.score:.0%}, {where}): '{start} ...' - Turnitin "
+                            "flags re-used text from your own submissions: cite the earlier work or rewrite it")
+        elif m.kind == "verbatim":
+            msg = (f"sentence copied from a source ({m.score:.0%} identical to {where}): '{start} ...' - rewrite it "
+                   "from your notes, or quote it exactly with a page number")
+            (errors if m.score >= COPY_ERROR else warnings).append(msg)
+        else:
+            msg = (f"sentence is a close paraphrase of {where} ({m.score:.0%} same structure and wording): "
+                   f"'{start} ...' - re-express the idea from your notes in your own structure, or quote it")
+            (errors if m.score >= PARA_ERROR else warnings).append(msg)
     return errors, warnings
+
+
+def copy_check(body: str, corpus=None) -> tuple[list[str], list[str]]:
+    """Verbatim copying, close paraphrase (patchwriting) and re-use of the author's earlier work."""
+    import textsim
+    matches, _ = textsim.scan_text(body, corpus, threshold=PARA_WARN)
+    return classify_matches(matches)
+
+
+def notes_check(n: int, corpus=None) -> tuple[list[str], list[str]]:
+    """research/notes.md must be in the author's own words, so the chapter written from it is too."""
+    import textsim
+    notes = chapter_dir(n) / "research" / "notes.md"
+    if not notes.exists():
+        return [], []
+    text = re.sub(r"^#+.*$|@[\w:.\-]+|\[[^\]]*\]|[\"“][^\"”]{0,300}[\"”]", " ", notes.read_text(encoding="utf-8"),
+                  flags=re.M)
+    lines = [re.sub(r"^\s*[-*]\s*(\w[\w /]*:)?", "", ln).strip() for ln in text.splitlines()]
+    corpus = corpus if corpus is not None else textsim.build_corpus(include_own=False)
+    flagged = []
+    for ln in lines:
+        if len(ln.split()) < 8:
+            continue
+        m = textsim.best_match(ln, corpus, threshold=PARA_WARN)
+        if m and m.kind != "own":
+            flagged.append(f"'{' '.join(ln.split()[:8])} ...' ({m.source})")
+    if not flagged:
+        return [], []
+    return [], [f"{len(flagged)} line(s) in research/notes.md copy or closely paraphrase a source: rewrite them as "
+                f"short points in your own words, so the chapter is written from your understanding: "
+                + "; ".join(flagged[:4]) + (" ..." if len(flagged) > 4 else "")]
 
 
 def page_of(text: str, needle: str) -> list[int]:
@@ -208,7 +205,10 @@ def data_check(n: int, body: str, chapter_type: str) -> tuple[list[str], list[st
 def run_all(n: int, body: str, chapter_type: str, lib: dict | None = None) -> tuple[list[str], list[str]]:
     lib = load_library() if lib is None else lib
     errors, warnings = [], []
-    for e, w in (copy_check(body), quote_check(body, lib), data_check(n, body, chapter_type)):
+    import textsim
+    corpus = textsim.build_corpus()
+    for e, w in (copy_check(body, corpus), notes_check(n, corpus), quote_check(body, lib),
+                 data_check(n, body, chapter_type)):
         errors += e
         warnings += w
     return errors, warnings

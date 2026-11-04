@@ -41,6 +41,11 @@ Rank by relevance first, then venue quality and citation count relative to age. 
 
 ## Notes (`research/notes.md`)
 
+Notes are short points **in your own words**. They are what the chapter is written from, so wording
+copied or lightly reworded from a source here ends up as patchwriting in the chapter. Read a passage,
+look away, and write what it means and why it matters. Keep exact wording only as a short quotation in
+quotation marks with its page. `check.py` compares notes with the sources and warns.
+
 One entry per source:
 
 ```markdown

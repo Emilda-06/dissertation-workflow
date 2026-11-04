@@ -79,6 +79,10 @@ def cmd_finish(a, cfg):
     print("\n== guideline compliance ==")
     run("guidelines.py", "compliance", str(n), show=False)
     print(f"written: {project().rel(chapter_dir(n) / 'compliance.md')}")
+    print("\n== similarity, terminology and defence brief ==")
+    run("similarity.py", str(n), "--html")
+    run("style.py", "terms", show=False)
+    run("defence.py", str(n))
     if (chapter_dir(n) / "revisions.md").exists() and state(n).get("current", {}).get("mode") == "edit":
         run("build.py", "changes", str(n))
         run("build.py", "redline", str(n))

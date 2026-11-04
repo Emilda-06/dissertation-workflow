@@ -16,8 +16,11 @@ import re
 import sys
 from pathlib import Path
 
+import author_input
+import critique
 import guidelines
 import integrity
+import style
 from chapterdoc import FIG_DEF, REF_USE, SEC_DEF, TBL_DEF, blocks, classify, word_count
 from common import (appendix_file, chapter_dir, chapter_file, existing_appendices, existing_chapters,
                     find_citekeys, init_cli, load_config, load_library, load_verification, project,
@@ -177,6 +180,19 @@ def check_chapter(n: int, cfg: dict, run_integrity: bool = True) -> dict:
         e, w = integrity.run_all(n, body, meta.get("type", ""), lib)
         errors += e
         warnings += w
+
+    # critical depth, the project's writing style, and the author's own input
+    w, depth = critique.warnings_for(body, meta.get("type", ""))
+    warnings += w
+    stats["descriptive_share"] = depth["descriptive_share"]
+    stats["synthesis_share"] = depth["synthesis_share"]
+    warnings += style.check_chapter(n)
+    answered, total = author_input.status(n)
+    if not total:
+        warnings.append(f"no author input recorded for this chapter (author_input.py init {n}): build the chapter "
+                        "on the author's own views, findings and context")
+    elif not answered:
+        warnings.append(f"author input questions are unanswered (author_input.py show {n})")
     return {"chapter": n, "errors": errors, "warnings": warnings, "stats": stats}
 
 
@@ -198,7 +214,9 @@ def report(res: dict) -> None:
     print(f"== {str(res['chapter']).title() if isinstance(res['chapter'], str) else 'Chapter ' + str(res['chapter'])} ==")
     print(f"  {s['words']} words | {s['paragraphs']} paragraphs | {s['figures']} figures | {s['tables']} tables | "
           f"{s['lists']} lists | {s['unique_sources']} sources ({s['recent_share']}% from {s['since']} onwards)"
-          f" | guideline requirements met {s.get('requirements_met', '-')}")
+          f" | guideline requirements met {s.get('requirements_met', '-')}"
+          + (f" | descriptive {int(s['descriptive_share'] * 100)}% / synthesis {int(s['synthesis_share'] * 100)}%"
+             if 'descriptive_share' in s else ""))
     for e in res["errors"]:
         print(f"  ERROR   {e}")
     for w in res["warnings"]:

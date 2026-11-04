@@ -83,7 +83,13 @@ research works without an email; builds work without a cover, without Word (Libr
      `requirements`. Every item needs `source: {file, page, quote}` with a quote copied from the text.
      Run `guidelines.py validate` until VALID, show the user a short summary, and after they agree run
      `guidelines.py approve`.
-3. `PY scripts/context.py <n>`: the project details, the research problem/aim/objectives/questions,
+3. **Writing style.** If the project has no `style.yaml`, ask the user (AskUserQuestion, header `Style`)
+   which preset fits (`style.py presets`: formal-analytical, concise-technical, discursive,
+   plain-academic) and British or American spelling, then `PY scripts/style.py init --preset <p>
+   [--spelling ...]`. Settings the guidelines state (person, spelling) are applied automatically. Show
+   the brief (`style.py show`) once; every chapter of this project then follows it, so the dissertation
+   reads as one consistent voice. Never change another project's style.
+4. `PY scripts/context.py <n>`: the project details, the research problem/aim/objectives/questions,
    the chapter plan, the merged outline skeleton and the guideline text for this chapter, the other
    chapters' headings and labels, and the earlier work and feedback files. Read files in `existing/`
    it lists when relevant; use them for consistency, never copy from them.
@@ -93,6 +99,13 @@ Record each finished stage with `PY scripts/state.py done <n> <stage> "<short no
 ---
 
 ## NEW mode
+
+### Stage 1a: the author's input (before planning)
+`PY scripts/author_input.py init <n>`, then ask the user its questions (their view, what convinced
+them, where they disagree, their context and examples). Short answers are fine; write them into
+`author_input.md` exactly as given (fix only spelling). The chapter is built on these answers: the
+argument, evaluations and examples come from the author, the sources support them. If the user
+prefers to skip, note that in the file and continue (check.py will keep reminding).
 
 ### Stage 1: plan (the only stop for user approval)
 Start from `PY scripts/guidelines.py outline <n>` (template + defaults + expansion). Write
@@ -110,7 +123,9 @@ without stopping.
 Follow `research-guide.md`. `PY scripts/research.py search "<query>" --chapter <n>` per query.
 For each source you'll rely on, `research.py fulltext --chapter <n> --doi <doi>` and read the relevant
 pages (or at least the abstract). Write `research/notes.md` (claims with pages, evidence,
-limitations, section). Roughly 1 source per 150–250 words for a literature chapter, fewer otherwise.
+limitations, section) as **short points in your own words, never sentences copied or lightly reworded
+from the source** (check.py compares the notes with the sources). Exact wording you may want to quote
+goes in quotation marks with its page. Roughly 1 source per 150–250 words for a literature chapter, fewer otherwise.
 
 ### Stage 3: verify
 `PY scripts/refs.py add --doi <doi> ...` (`add-manual` only for standards/reports without a DOI).
@@ -130,6 +145,12 @@ type: <type>
 status: draft
 ---
 ```
+**Write from `research/notes.md` and `author_input.md`, never with a source open.** Follow the
+project's style brief (`style.py show`). For each paragraph: make the author's point, support it with
+evidence from one or more sources, evaluate (compare, judge methods and limits) and link it to this
+study. Never list studies one per sentence or one per paragraph; group them by theme. Never keep a
+source's sentence structure while swapping words: that is patchwriting and check.py blocks it.
+
 Start directly with the first `##` section. Put `{#sec:<spec id>}` on every template heading and
 `<!-- req: <ID> -->` where each free-text requirement is met. Mention each required element's
 keyword in its caption. Write section by section and save as you go.
@@ -140,14 +161,23 @@ Create each planned figure following `diagram-standard.md`, then `PY scripts/dia
 
 ### Stages 6–8: check, build, report
 1. `PY scripts/check.py <n>`. Fix every ERROR (unverified/retracted/edited sources, missing template
-   sections or elements, copied sentences, quotes not found in the source, broken labels). Fix
+   sections or elements, copied or closely paraphrased sentences, quotes not found in the source,
+   broken labels). Fix the `depth:` warnings (descriptive paragraphs, lists of studies, low synthesis)
+   and `style:` warnings. For a flagged paraphrase, rewrite the point from the notes in a new structure
+   and add evaluation; never just swap more words. Run `PY scripts/similarity.py <n>` to see each
+   flagged sentence next to its source. Fix
    warnings unless there's a clear reason not to. Then self-review: every claim supported by a source
    that says it; every requirement and objective covered; plain English; varied blocks.
 2. `PY scripts/pipeline.py finish <n> [--pdf]`: diagrams → check → verify → build → compliance →
    state → git snapshot. If it stops, fix what it reports and run it again. If Word holds the file
    open, ask the user to close it.
-3. Tell the user briefly: project and output path; words/figures/tables/sources (check.py);
-   guideline requirements met (`compliance.md`); `TODO-DATA` items they must supply; anything unsure.
+3. `finish` also writes `similarity_report.md` (estimated similarity against the known sources and
+   your earlier work, a lower bound of what Turnitin may show) and `defence_brief.md` (key claims and
+   evidence, figures to explain, weak spots, likely examiner questions). Add short model answers under
+   the questions in the brief, based on the chapter and the author's input.
+4. Tell the user briefly: project and output path; words/figures/tables/sources (check.py); guideline
+   requirements met (`compliance.md`); estimated similarity; the defence brief; `TODO-DATA` items they
+   must supply; anything unsure. Suggest they rehearse the defence brief in their own words.
 
 ---
 

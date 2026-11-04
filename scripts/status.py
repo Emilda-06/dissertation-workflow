@@ -36,7 +36,9 @@ def chapter_row(n: int, cfg: dict) -> dict:
     latest = latest_version(chapter_dir(n) / "docs", chapter_slug(n))
     fb = [f for f in project().feedback.glob("*") if f.is_file() and latest and f.stat().st_mtime > latest.stat().st_mtime
           and re.search(rf"(ch(apter)?[\s_\-]*0?{n}\b)", f.name, re.I)] if project().feedback.exists() else []
-    row.update({"exists": True, "status": meta.get("status", ""), "words": s["words"], "target": target,
+    rep = chapter_dir(n) / "similarity_report.md"
+    sim = re.search(r"Estimated similarity: ([\d.]+)%", rep.read_text(encoding="utf-8")) if rep.exists() else None
+    row.update({"similarity": f"{sim.group(1)}%" if sim else "-", "exists": True, "status": meta.get("status", ""), "words": s["words"], "target": target,
                 "sources": s["unique_sources"], "recent": s["recent_share"], "figures": s["figures"],
                 "tables": s["tables"], "requirements": s.get("requirements_met", "-"),
                 "todo": len(re.findall(r"TODO-DATA", body)), "errors": len(res["errors"]),
@@ -48,7 +50,8 @@ def chapter_row(n: int, cfg: dict) -> dict:
 def text_report(rows: list[dict], cfg: dict) -> str:
     p = project()
     out = [f"Project: {p.slug} - {(cfg.get('project') or {}).get('title', '')}", ""]
-    hdr = f"{'#':>2} {'Chapter':<34} {'Words / target':<18} {'Src':>4} {'Rec%':>4} {'Req':>6} {'TODO':>4} {'Err':>3}  Version"
+    hdr = (f"{'#':>2} {'Chapter':<34} {'Words / target':<18} {'Src':>4} {'Rec%':>4} {'Req':>6} {'TODO':>4} "
+           f"{'Err':>3} {'Sim':>6}  Version")
     out += [hdr, "-" * len(hdr)]
     for r in rows:
         if not r["exists"]:
@@ -56,7 +59,7 @@ def text_report(rows: list[dict], cfg: dict) -> str:
             continue
         wt = f"{r['words']:,} / {r['target'][0]:,}-{r['target'][1]:,}"
         out.append(f"{r['n']:>2} {r['title'][:34]:<34} {wt:<18} {r['sources']:>4} {r['recent']:>4} "
-                   f"{r['requirements']:>6} {r['todo']:>4} {r['errors']:>3}  {r['version']}"
+                   f"{r['requirements']:>6} {r['todo']:>4} {r['errors']:>3} {r['similarity']:>6}  {r['version']}"
                    + (f"  ({r['run']})" if r.get("run") else "")
                    + (f"  NEW FEEDBACK: {', '.join(r['new_feedback'])}" if r["new_feedback"] else ""))
     st = guidelines.spec_status(cfg)

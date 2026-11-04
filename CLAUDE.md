@@ -32,6 +32,7 @@ the only project. Always state which project you are working on, and never mix f
 
 ```
 projects/<name>/
+  style.yaml            this project's writing style (style.py)
   project.yaml          title, student details, chapter plan, citation style, Zotero collection, formatting
   cover.docx|pdf        cover page ({{PLACEHOLDERS}} filled automatically)
   guidelines/           department guidelines / chapter templates, ANY file names (scan maps them)
@@ -42,7 +43,8 @@ projects/<name>/
                         spec.yaml (sourced, checkable requirements)
   output/chapters/chapter_<word>/
       chapter.md        the chapter source (the only file you edit for content)
-      outline.md, outline_skeleton.md, compliance.md, revisions.md, state.json
+      outline.md, outline_skeleton.md, author_input.md, compliance.md, similarity_report.md,
+      defence_brief.md, revisions.md, state.json
       diagrams/ data/ research/ (candidates.json, notes.md, fulltext/ = untrusted text)
       docs/             chapter_<word>_v<k>.docx (+ .md source snapshot, _changes, _tracked)
   output/appendices/appendix_<x>/appendix.md
@@ -68,7 +70,12 @@ Use the project venv: `PY scripts/<name>.py ...` where `PY` = `.venv/Scripts/pyt
 | `refs.py add / add-manual / verify / list / show / find / remove / mark-foundational / sync-zotero / pull-zotero` | Reference library |
 | `diagrams.py n` | Render diagram sources to 300 dpi PNG |
 | `check.py n|A|all` | Quality gate incl. guideline requirements and integrity; exit 2 = blocking |
-| `integrity.py n` | Copying / quotes / data traceability only |
+| `integrity.py n` | Copying, close paraphrase, earlier-work re-use, notes, quotes, data traceability |
+| `similarity.py n|all [--html]` | Pre-submission similarity report with every flagged sentence and its fix |
+| `author_input.py init / show / status n` | The author's own views and context for a chapter |
+| `style.py presets / init / show / check / terms` | The project's writing style (style.yaml), applied to every chapter |
+| `critique.py n` | Critical depth: descriptive paragraphs, lists of studies, synthesis |
+| `defence.py n` | Viva / defence brief: key claims and evidence, weak spots, likely questions |
 | `build.py chapter n / combine / changes n / redline n` | Word builds, change list, tracked changes |
 | `status.py [--html] [--all-projects]` | Progress dashboard |
 | `import_docx.py <file.docx> n` | Bring an existing Word chapter in |
@@ -86,8 +93,10 @@ Tests: `PY -m pytest` (see `tests/`).
    numbers the user supplies. If data is missing, write `TODO-DATA: <what is needed>` and report it.
    Save derived values (means, totals) from analysis scripts into `data/` so they can be traced.
 3. **Represent sources honestly.** Only claim what the source says (full text or abstract).
-4. **Write original synthesis, not paraphrase.** No sentences copied from sources (check.py blocks
-   them). Direct quotes are rare, short, exact, in quotation marks, with pages `[@key, p. 4]`.
+4. **Write original synthesis, not paraphrase.** Write from your notes and the author's input, never
+   with a source open. No copied sentences and no patchwriting (a source's structure with words
+   swapped); check.py blocks both. Notes are in your own words too. Direct quotes are rare, short,
+   exact, in quotation marks, with pages `[@key, p. 4]`. Never rewrite text to disguise its origin.
 5. **Follow the project's guidelines, and go beyond short ones.** Template sections and required
    elements (`requirements/spec.yaml`) are mandatory, in order, with their titles. Never record a
    requirement the guideline does not state (every spec item quotes its source). Expand thin

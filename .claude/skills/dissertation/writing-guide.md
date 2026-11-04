@@ -134,3 +134,19 @@ Figures: follow `diagram-standard.md`, which covers picking, drawing, captioning
   or `Source: @key.` Your own diagrams need no source line.
 - Table captions describe the comparison: "Comparison of Zero Trust frameworks by scope,
   enforcement point and maturity".
+
+## Original synthesis (what lowers similarity and raises marks)
+
+- **Write from notes, not from sources.** Never draft with a source open; never keep a source's
+  sentence structure and swap words (patchwriting). `check.py` blocks close paraphrases.
+- **Lead with the argument, not the author.** "Temporal defences catch slow attacks that single-round
+  filters miss [@a; @b]" synthesises; "@a proposed X. @b developed Y." only lists.
+- **Group by theme, compare across sources:** where they agree, disagree, and why; which evidence is
+  stronger; what it means for this study. `check.py` flags descriptive paragraphs and lists of studies.
+- **Use the author's input** (`author_input.md`): their view, examples and context make the chapter
+  theirs and are not found in any source.
+- **Quote rarely and exactly**, short, with the page. Quotations in quotation marks are excluded from
+  the similarity estimate (and Turnitin can exclude them too).
+- **Re-using your earlier submissions** (proposal, coursework) counts as similarity: cite them or rewrite.
+- **Keep the project's style** (`style.py show`): the same spelling, person, sentence rhythm and
+  terminology in every chapter.

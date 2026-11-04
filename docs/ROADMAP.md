@@ -101,3 +101,15 @@ Design (`scripts/guidelines.py`)
   open, cover rendered as an image (LibreOffice/pypdfium2), PDF via LibreOffice.
 - No hard-coded `.venv/Scripts`; hook and permissions work with `.venv/bin` too; `start.sh`.
 - PDF/A export option for submission portals.
+
+## Step 8 - Original writing and defensibility
+- `textsim.py`: verbatim overlap plus close-paraphrase (patchwriting) detection with light stemming and
+  academic synonym groups; standard terminology shared by many sources is discounted.
+- Sources compared: downloaded full texts, search abstracts, and the author's earlier work in existing/.
+- `check.py` blocks copied and closely paraphrased sentences, warns on re-used earlier work and on
+  research notes that copy their sources; `similarity.py` writes a pre-submission report.
+- `author_input.py`: the author's views, disagreements and context, gathered before planning.
+- `style.py`: a chosen, saved writing style per project (presets, guideline-derived person/spelling,
+  learned terminology), checked in every chapter and across chapters.
+- `critique.py`: descriptive paragraphs, lists of studies and low synthesis.
+- `defence.py`: viva brief with key claims, evidence, weak spots and likely questions.

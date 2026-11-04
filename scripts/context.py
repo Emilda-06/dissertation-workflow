@@ -13,7 +13,9 @@ import argparse
 import re
 from pathlib import Path
 
+import author_input
 import guidelines
+import style
 from chapterdoc import parse_headings
 from common import (chapter_file, existing_chapters, init_cli, load_config, project, read_front_matter)
 
@@ -87,6 +89,18 @@ def main():
         print(topic_sections(read_any(src)) or "(no matching headings found - read the source in full)")
     else:
         print("(no topic source yet: set project.current_topic_source, or add a proposal to existing/)")
+
+    print("\n## Writing style (keep it for every chapter of this project)")
+    prof = style.load()
+    print(style.brief(prof) if prof else "(no style.yaml yet: run style.py init and confirm it with the user)")
+
+    print("\n## The author's own input (build the chapter on this)")
+    ai = author_input.path(a.n)
+    if ai.exists():
+        for qid, q, ans in author_input.parse(ai.read_text(encoding="utf-8")):
+            print(f"- {q}\n  {ans or '(not answered yet)'}")
+    else:
+        print(f"(none yet: author_input.py init {a.n}, then ask the user the questions)")
 
     print("\n## Guideline requirements for this chapter")
     st = guidelines.spec_status(cfg)

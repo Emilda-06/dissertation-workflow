@@ -33,6 +33,14 @@ reference, writes, draws diagrams, runs a quality check and builds a new numbere
   plain .docx). Every build is a new version (`_v1`, `_v2`, ...). Appendices follow the references.
 - **Revisions:** supervisor feedback (typed, pasted, a file, or Word comments) is applied and logged;
   the supervisor gets a "changes made" table and a tracked-changes version.
+- **Original writing:** chapters are written from your own notes and your answers to a few
+  questions about your views and context. `check.py` blocks copied sentences and close paraphrases
+  (patchwriting), flags re-use of your earlier submissions and purely descriptive paragraphs, and
+  `similarity.py` gives a pre-submission similarity report with every flagged sentence and its fix.
+- **A consistent voice per project:** each dissertation has its own writing style (`style.yaml`:
+  spelling, person, sentence rhythm, hedging, terminology), applied and checked in every chapter.
+- **Ready for the viva:** a defence brief per chapter lists the key claims and their evidence, the
+  figures to explain, weak spots and likely examiner questions.
 - **Status at a glance:** `status.py` (or `--html`) shows words against target, sources,
   requirements met, TODO-DATA items, versions and unanswered feedback for every chapter.
 - **Your rules:** the pipeline never invents sources, data or results. Missing data is marked
