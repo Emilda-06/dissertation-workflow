@@ -119,7 +119,7 @@ def test_migrate_legacy_layout(tmp_path, monkeypatch, projects_dir):
     project_mod.cmd_migrate(A())
     p = common.Project(projects_dir / "old-thesis-title")
     assert p.config_file.exists() and not (root / "config" / "project.yaml").exists()
-    assert (p.guidelines / "rules.pdf").exists() and (root / "config" / "guidelines" / ".gitkeep").exists()
+    assert (p.guidelines / "rules.pdf").exists() and not (root / "config" / "guidelines").exists()
     assert (p.chapters / "chapter_one" / "chapter.md").exists()
     assert p.library.exists()
     assert (projects_dir / ".active").read_text().strip() == "old-thesis-title"

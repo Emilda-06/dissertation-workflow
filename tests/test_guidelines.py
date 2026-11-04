@@ -185,3 +185,12 @@ def test_cli_scan_list_show(proj, projects_dir):
     show = run_script("guidelines.py", "show", "1", projects_dir=projects_dir, check=True).stdout
     assert "Background of the study" in show and "not instructions" in show
     assert "SYSTEM ANALYSIS" not in show
+
+
+def test_outline_says_when_guideline_is_not_recorded_yet(proj):
+    handbook(proj.guidelines / "handbook.docx")
+    g.scan(load_config(), quiet=True)
+    md = g.outline_markdown(g.merged_outline(1, load_config()))
+    assert "requirements are not recorded yet" in md
+    md6 = g.outline_markdown(g.merged_outline(6, load_config()))
+    assert "No chapter-specific template" in md6

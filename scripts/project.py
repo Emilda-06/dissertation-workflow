@@ -185,6 +185,10 @@ def cmd_migrate(args):
             dst.parent.mkdir(parents=True, exist_ok=True)
             shutil.move(str(src), str(dst))
             moved.append(old)
+    for old, _ in LEGACY_MOVES:                        # remove legacy folders that are now empty
+        src = ROOT / old
+        if src.is_dir() and not any(x.name != ".gitkeep" for x in src.iterdir()):
+            shutil.rmtree(src, ignore_errors=True)
     cfg = yaml.safe_load(p.config_file.read_text(encoding="utf-8")) or {}
     cfg.setdefault("zotero", {}).setdefault("collection", slug)
     write_yaml(p.config_file, cfg)

@@ -734,7 +734,9 @@ def merged_outline(n: int, cfg: dict) -> dict:
     return {"chapter": n, "title": ch_spec.get("title") or ch_plan.get("title", f"Chapter {n}"), "type": typ,
             "title_policy": ch_spec.get("title_policy", "exact"), "words": words, "words_origin": words_origin,
             "sections": rows, "elements": elements, "requirements": ch_spec.get("requirements") or [],
-            "template_sections": len(tsecs)}
+            "template_sections": len(tsecs),
+            "guideline_parts": len([1 for _, part in parts_for(n, load_manifest(), general=False)]),
+            "in_spec": bool(ch_spec)}
 
 
 def outline_markdown(o: dict) -> str:
@@ -749,7 +751,12 @@ def outline_markdown(o: dict) -> str:
              f"Template titles: {'keep them word for word' if o['title_policy'] == 'exact' else 'may be reworded'}.",
              "", "Origins: **template** = required by your guideline (never drop or reorder); "
              "**default** = standard part the guideline does not mention; **expansion** = add depth here.", ""]
-    if not o["template_sections"]:
+    if not o["template_sections"] and o.get("guideline_parts") and not (o.get("in_spec") and
+                                                                         (o["elements"] or o["requirements"])):
+        lines += ["**A guideline applies to this chapter but its requirements are not recorded yet.** Read "
+                  f"`guidelines.py show {n}`, record its sections/elements/requirements in requirements/spec.yaml "
+                  "(validate, approve), then run this outline again. Until then only the defaults below apply.", ""]
+    elif not o["template_sections"]:
         lines += ["No chapter-specific template: the default structure for this chapter type is used.", ""]
     elif sparse:
         lines += ["The template is short: keep its sections as the backbone and expand each one with "
