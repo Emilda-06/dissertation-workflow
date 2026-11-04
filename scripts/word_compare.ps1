@@ -15,8 +15,8 @@ $word.DisplayAlerts = 0
 try {
     $a = $word.Documents.Open($Original, $false, $true)
     $b = $word.Documents.Open($Revised, $false, $true)
-    # Destination 2 = new document; Granularity 1 = word level
-    $cmp = $word.CompareDocuments($a, $b, 2, 1, $true, $true, $true, $true, $true, $true, $true, $true, $true, $true, "Revision", $true)
+    # Destination 2 = new document; Granularity 1 = word level; CompareFields off (contents/lists are regenerated every build)
+    $cmp = $word.CompareDocuments($a, $b, 2, 1, $true, $true, $true, $true, $true, $true, $true, $false, $true, $true, "Revision", $true)
     $cmp.SaveAs2($Output, 16)
     $revs = $cmp.Revisions.Count
     $cmp.Close($false)

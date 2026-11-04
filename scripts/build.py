@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import difflib
+import os
 import re
 import shutil
 import subprocess
@@ -282,12 +283,18 @@ def fill_placeholders(src: Path, out: Path, values: dict[str, str]) -> int:
     return count
 
 
+def lo_profile_arg() -> str:
+    """LibreOffice runs with the workflow's own profile (never the user's; see lo_finalize.py)."""
+    base = Path(os.environ.get("LOCALAPPDATA") or Path.home() / ".local" / "share")
+    return f"-env:UserInstallation={(base / 'dissertation-workflow' / 'libreoffice-profile').as_uri()}"
+
+
 def docx_to_png(docx: Path, out: Path) -> Path | None:
     soffice = find_tool("soffice")
     if not soffice:
         return None
     pdf_dir = out.parent
-    subprocess.run([soffice, "--headless", "--convert-to", "pdf", "--outdir", str(pdf_dir), str(docx)],
+    subprocess.run([soffice, lo_profile_arg(), "--headless", "--convert-to", "pdf", "--outdir", str(pdf_dir), str(docx)],
                    capture_output=True, timeout=180)
     pdf = pdf_dir / (docx.stem + ".pdf")
     return pdf_to_png(pdf, out) if pdf.exists() else None
@@ -396,13 +403,26 @@ def word_finalize(docx: Path, cover: tuple[str, str], pdf: bool, cfg: dict, pdfa
         die("Word finalisation failed - is the .docx open in Word? Close it and rebuild.")
 
 
-def libreoffice_pdf(docx: Path, pdfa: bool) -> None:
-    soffice = require_tool("soffice")
-    target = 'pdf:writer_pdf_Export:{"SelectPdfVersion":{"type":"long","value":"2"}}' if pdfa else "pdf"
-    r = subprocess.run([soffice, "--headless", "--convert-to", target, "--outdir", str(docx.parent), str(docx)],
-                       capture_output=True, text=True, timeout=600)
-    pdf = docx.with_suffix(".pdf")
-    print(f"  libreoffice: {'PDF: ' + str(pdf) if pdf.exists() else (r.stderr or r.stdout).strip()[:300]}")
+def libreoffice_finalize(docx: Path, want_pdf: bool, pdfa: bool) -> bool:
+    """Refresh contents/lists with LibreOffice (its own Python drives it) and export PDF if asked.
+    Falls back to a plain conversion when LibreOffice's Python is not available."""
+    soffice = Path(require_tool("soffice"))
+    lo_python = next((p for p in (soffice.parent / "python.exe", soffice.parent / "python") if p.exists()), None)
+    if lo_python:
+        flags = (["--pdfa"] if pdfa else ["--pdf"]) if want_pdf else []
+        r = subprocess.run([str(lo_python), str(ROOT / "scripts" / "lo_finalize.py"), str(docx), *flags],
+                           capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=900)
+        msg = (r.stdout + r.stderr).strip()
+        print(f"  libreoffice: {msg[-400:]}")
+        if r.returncode == 0:
+            return True
+    if want_pdf:
+        target = 'pdf:writer_pdf_Export:{"SelectPdfVersion":{"type":"long","value":"2"}}' if pdfa else "pdf"
+        r = subprocess.run([str(soffice), lo_profile_arg(), "--headless", "--convert-to", target, "--outdir", str(docx.parent),
+                            str(docx)], capture_output=True, text=True, timeout=600)
+        pdf = docx.with_suffix(".pdf")
+        print(f"  libreoffice: {'PDF: ' + str(pdf) if pdf.exists() else (r.stderr or r.stdout).strip()[:300]}")
+    return False
 
 
 def finish_plan(cfg: dict, args, label: str) -> tuple[str, tuple[str, str], bool, bool]:
@@ -421,12 +441,15 @@ def build_document(body_md: str, front_pages: list[str], out: Path, cfg: dict, a
     run_pandoc(full, out, cfg, refs_heading=refs_heading, pull=zotero_enabled(cfg, args))
     if mode == "word":
         word_finalize(out, cover, want_pdf, cfg, pdfa)
-    elif mode == "libreoffice" and want_pdf:
-        libreoffice_pdf(out, pdfa)
-    elif want_pdf:
-        print("  note: no Word or LibreOffice - PDF not produced (the .docx is complete)")
-    if mode != "word":
-        print(f"  finished without Word ({mode}): the contents and lists fill in when the document is opened "
+    elif mode == "libreoffice":
+        if libreoffice_finalize(out, want_pdf, pdfa):
+            print("  finished with LibreOffice: contents and lists filled; page numbers are arabic throughout")
+        else:
+            print("  finished with LibreOffice (conversion only): contents fill in when the document is opened")
+    else:
+        if want_pdf:
+            print("  note: no Word or LibreOffice - PDF not produced (the .docx is complete)")
+        print("  finished without Word: the contents and lists fill in when the document is opened "
               "(accept 'update fields'); page numbers are arabic throughout")
     return mode
 
