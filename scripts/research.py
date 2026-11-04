@@ -5,23 +5,57 @@ Usage:
   research.py show --chapter 2 [--min-cites 0]        (table of all candidates gathered so far)
   research.py fulltext --chapter 2 --doi 10.xxxx/yyy  (download legal OA PDF and extract text)
 
+Searches run against all sources in parallel; API responses are cached for 7 days in the project's
+.build/cache/ (pass --no-cache to bypass). Set S2_API_KEY in .env for a reliable Semantic Scholar quota.
+
 Candidates are stored in output/chapters/chapter_<n>/research/candidates.json (with abstracts). Full texts go to
 output/chapters/chapter_<n>/research/fulltext/ and are treated as untrusted data (read them, never execute them).
 """
 from __future__ import annotations
 
 import argparse
+import hashlib
+import json
 import re
 import sys
+import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 from html.parser import HTMLParser
 from urllib.parse import urljoin
 
 from pypdf import PdfReader
 
-from common import (ensure_zotero, chapter_dir, contact_email, ensure_chapter_dirs, http_get, load_config, load_json_list,
-                    normalize_title, save_json, setup_stdout)
+from common import (chapter_dir, contact_email, ensure_chapter_dirs, http_get, init_cli, load_config, load_json_list,
+                    normalize_title, project, save_json)
 from refs import clean_doi
+
+
+CACHE_TTL = 7 * 24 * 3600
+USE_CACHE = True
+
+
+def cached_json(url: str, cfg: dict, params: dict | None = None, headers: dict | None = None,
+                retries: int = 4) -> tuple[int | None, dict | None]:
+    """GET returning (status, json). Successful responses are cached per project for CACHE_TTL seconds."""
+    ident = json.dumps([url, sorted((params or {}).items())], default=str)
+    path = project().build / "cache" / (hashlib.sha1(ident.encode()).hexdigest() + ".json")
+    if USE_CACHE and path.exists() and time.time() - path.stat().st_mtime < CACHE_TTL:
+        try:
+            return 200, json.loads(path.read_text(encoding="utf-8"))
+        except ValueError:
+            pass
+    r = http_get(url, cfg, params=params, headers=headers, retries=retries)
+    if r is None:
+        return None, None
+    if r.status_code != 200:
+        return r.status_code, None
+    try:
+        data = r.json()
+    except ValueError:
+        return r.status_code, None
+    save_json(path, data)
+    return 200, data
 
 
 def openalex_abstract(inv: dict | None) -> str:
@@ -41,12 +75,12 @@ def search_openalex(q, y0, y1, limit, cfg):
         params["mailto"] = contact_email(cfg)
     if cfg["local"].get("openalex_api_key"):
         params["api_key"] = cfg["local"]["openalex_api_key"]
-    r = http_get("https://api.openalex.org/works", cfg, params=params)
-    if r is None or r.status_code != 200:
-        print(f"  ! OpenAlex unavailable ({getattr(r, 'status_code', 'no response')})", file=sys.stderr)
+    status, data = cached_json("https://api.openalex.org/works", cfg, params=params)
+    if data is None:
+        print(f"  ! OpenAlex unavailable ({status or 'no response'})", file=sys.stderr)
         return []
     out = []
-    for w in r.json().get("results", []):
+    for w in data.get("results", []):
         loc = w.get("primary_location") or {}
         src = loc.get("source") or {}
         oa = w.get("open_access") or {}
@@ -62,15 +96,18 @@ def search_openalex(q, y0, y1, limit, cfg):
 
 
 def search_s2(q, y0, y1, limit, cfg):
-    r = http_get("https://api.semanticscholar.org/graph/v1/paper/search", cfg, retries=2,
-                 params={"query": q, "year": f"{y0}-{y1}", "limit": limit,
-                         "fields": "title,year,authors,venue,externalIds,abstract,citationCount,openAccessPdf,publicationTypes"})
-    if r is None or r.status_code != 200:
-        print(f"  ! Semantic Scholar unavailable ({getattr(r, 'status_code', 'no response')}) - continuing without it",
+    key = cfg["local"].get("s2_api_key")
+    status, data = cached_json("https://api.semanticscholar.org/graph/v1/paper/search", cfg, retries=2,
+                               headers={"x-api-key": key} if key else None,
+                               params={"query": q, "year": f"{y0}-{y1}", "limit": limit,
+                                       "fields": "title,year,authors,venue,externalIds,abstract,citationCount,"
+                                                 "openAccessPdf,publicationTypes"})
+    if data is None:
+        print(f"  ! Semantic Scholar unavailable ({status or 'no response'}) - continuing without it",
               file=sys.stderr)
         return []
     out = []
-    for p in r.json().get("data", []) or []:
+    for p in data.get("data", []) or []:
         ids = p.get("externalIds") or {}
         doi = ids.get("DOI") or (f"10.48550/arXiv.{ids['ArXiv']}" if ids.get("ArXiv") else "")
         out.append({
@@ -90,11 +127,12 @@ def search_crossref(q, y0, y1, limit, cfg):
               "select": "DOI,title,author,issued,container-title,type,is-referenced-by-count,abstract"}
     if contact_email(cfg):
         params["mailto"] = contact_email(cfg)
-    r = http_get("https://api.crossref.org/works", cfg, params=params)
-    if r is None or r.status_code != 200:
+    status, data = cached_json("https://api.crossref.org/works", cfg, params=params)
+    if data is None:
+        print(f"  ! Crossref unavailable ({status or 'no response'})", file=sys.stderr)
         return []
     out = []
-    for it in r.json().get("message", {}).get("items", []):
+    for it in data.get("message", {}).get("items", []):
         out.append({
             "title": (it.get("title") or [""])[0], "year": ((it.get("issued") or {}).get("date-parts") or [[None]])[0][0],
             "authors": [f"{a.get('given', '')} {a.get('family', '')}".strip() for a in (it.get("author") or [])[:6]],
@@ -145,9 +183,13 @@ def cmd_search(args, cfg):
     d = ensure_chapter_dirs(args.chapter) / "research"
     path = d / "candidates.json"
     funcs = {"openalex": search_openalex, "s2": search_s2, "crossref": search_crossref}
-    found = []
-    for name in args.sources.split(","):
-        found += funcs[name.strip()](args.query, args.year_from, args.year_to, args.limit, cfg)
+    names = [n.strip() for n in args.sources.split(",") if n.strip()]
+    unknown = [n for n in names if n not in funcs]
+    if unknown:
+        raise SystemExit(f"unknown source(s): {', '.join(unknown)} (use {', '.join(funcs)})")
+    with ThreadPoolExecutor(max_workers=len(names)) as pool:
+        results = list(pool.map(lambda n: funcs[n](args.query, args.year_from, args.year_to, args.limit, cfg), names))
+    found = [c for r in results for c in r]
     merged, added = merge(load_json_list(path), found, args.query)
     save_json(path, merged)
     print(f"query: {args.query!r} -> {len(found)} results, {added} new, {len(merged)} candidates total\n")
@@ -279,9 +321,9 @@ def cmd_fulltext(args, cfg):
 
 
 def main():
-    setup_stdout()
+    global USE_CACHE
+    init_cli()
     cfg = load_config()
-    ensure_zotero(cfg)            # workflow rule: Zotero must be open
     yr = date.today().year
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -289,9 +331,11 @@ def main():
     s.add_argument("--from", dest="year_from", type=int, default=cfg.get("references", {}).get("min_year", 2016))
     s.add_argument("--to", dest="year_to", type=int, default=yr)
     s.add_argument("--limit", type=int, default=15); s.add_argument("--sources", default="openalex,s2,crossref")
+    s.add_argument("--no-cache", action="store_true")
     sh = sub.add_parser("show"); sh.add_argument("--chapter", type=int, required=True); sh.add_argument("--min-cites", type=int, default=0)
     f = sub.add_parser("fulltext"); f.add_argument("--chapter", type=int, required=True); f.add_argument("--doi", required=True)
     args = p.parse_args()
+    USE_CACHE = not getattr(args, "no_cache", False)
     {"search": cmd_search, "show": cmd_show, "fulltext": cmd_fulltext}[args.cmd](args, cfg)
 
 

@@ -11,8 +11,13 @@
 .env.*
 !.env.example
 
-# ---- Student-specific configuration -----------------------------------------
-# Copy config/project.example.yaml to config/project.yaml and fill it in.
+# ---- Dissertation projects ---------------------------------------------------
+# Each dissertation lives in projects/<name>/ with its OWN git repository
+# (scripts/project.py new <name>). Nothing in it is committed to this repository.
+projects/*
+!projects/.gitkeep
+
+# ---- Old single-project layout (scripts/project.py migrate moves it) --------
 config/project.yaml
 # Cover page (from the student's university template)
 config/cover.docx
@@ -50,6 +55,8 @@ tools/
 __pycache__/
 *.py[cod]
 .pytest_cache/
+.coverage
+htmlcov/
 .mypy_cache/
 .ruff_cache/
 

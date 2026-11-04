@@ -1,9 +1,9 @@
 """Pipeline progress per chapter, so an interrupted run can resume where it stopped.
 
 Usage:
-  state.py show [<n>]                       (all chapters if n omitted)
-  state.py start <n> <mode> "<request>"     mode: new | edit
-  state.py done <n> <stage> ["note"]        stage: plan research verify write diagrams check build report
+  state.py show [<n>]                                 (all chapters if n omitted)
+  state.py start <n> <mode> "<request>" [--force]     mode: new | edit   (--force abandons a run in progress)
+  state.py done <n> <stage> ["note"]                  stage: plan research verify write diagrams check build report
   state.py finish <n>
 """
 from __future__ import annotations
@@ -12,12 +12,13 @@ import argparse
 import json
 from datetime import datetime
 
-from common import chapter_dir, ensure_chapter_dirs, existing_chapters, save_json, setup_stdout
+from common import chapter_dir, die, ensure_chapter_dirs, existing_chapters, init_cli, project, save_json
 
 STAGES = {
     "new": ["plan", "research", "verify", "write", "diagrams", "check", "build", "report"],
     "edit": ["plan", "research", "verify", "write", "diagrams", "check", "build", "report"],
 }
+ALL_STAGES = sorted({s for v in STAGES.values() for s in v})
 
 
 def path(n):
@@ -27,6 +28,10 @@ def path(n):
 def load(n):
     p = path(n)
     return json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
+
+
+def chapters_with_state() -> list[int]:
+    return sorted(set(existing_chapters()) | {n for n in range(1, 100) if path(n).exists()})
 
 
 def show(n):
@@ -46,29 +51,40 @@ def show(n):
 
 
 def main():
-    setup_stdout()
+    init_cli()
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="cmd", required=True)
     s = sub.add_parser("show"); s.add_argument("n", type=int, nargs="?")
     st = sub.add_parser("start"); st.add_argument("n", type=int); st.add_argument("mode", choices=list(STAGES))
-    st.add_argument("request")
-    d = sub.add_parser("done"); d.add_argument("n", type=int); d.add_argument("stage"); d.add_argument("note", nargs="?", default="")
+    st.add_argument("request"); st.add_argument("--force", action="store_true")
+    d = sub.add_parser("done"); d.add_argument("n", type=int); d.add_argument("stage", choices=ALL_STAGES)
+    d.add_argument("note", nargs="?", default="")
     f = sub.add_parser("finish"); f.add_argument("n", type=int)
     a = p.parse_args()
     now = datetime.now().isoformat(timespec="seconds")
+    print(f"[project: {project().slug}]")
     if a.cmd == "show":
-        for n in ([a.n] if a.n else existing_chapters()):
+        nums = [a.n] if a.n is not None else chapters_with_state()
+        if not nums:
+            print("no chapters yet")
+        for n in nums:
             show(n)
         return
     ensure_chapter_dirs(a.n)
     s = load(a.n)
     if a.cmd == "start":
         if s.get("current"):
+            if not a.force:
+                die(f"chapter {a.n} already has a run in progress (mode={s['current'].get('mode')}, started "
+                    f"{s['current'].get('started')}). Resume it, or pass --force to abandon it and start again.", 3)
             s.setdefault("history", []).append({**s["current"], "abandoned": now})
         s["current"] = {"mode": a.mode, "request": a.request, "started": now, "done": []}
     elif a.cmd == "done":
         if not s.get("current"):
-            raise SystemExit("no run in progress; use 'start' first")
+            die("no run in progress; use 'start' first")
+        if a.stage not in STAGES[s["current"]["mode"]]:
+            die(f"'{a.stage}' is not a stage of mode {s['current']['mode']}")
+        s["current"]["done"] = [x for x in s["current"]["done"] if x["stage"] != a.stage]
         s["current"]["done"].append({"stage": a.stage, "at": now, "note": a.note})
     elif a.cmd == "finish":
         if s.get("current"):
