@@ -13,6 +13,7 @@ import argparse
 import json
 import subprocess
 import sys
+from pathlib import Path
 
 from common import ROOT, chapter_dir, chapter_file, die, ensure_zotero, init_cli, load_config, project
 
@@ -84,7 +85,7 @@ def cmd_finish(a, cfg):
     done(n, "report", built)
     run("state.py", "finish", str(n), show=False)
     if not a.no_commit:
-        run("project.py", "commit", f"chapter {n}: built {built.rsplit('/', 1)[-1] if built else ''}".strip())
+        run("project.py", "commit", f"chapter {n}: built {Path(built).name if built else ''}".strip())
     print(f"\nDONE chapter {n}: {built}")
 
 
