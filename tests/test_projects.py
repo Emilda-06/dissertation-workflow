@@ -166,7 +166,7 @@ def test_every_command_announces_its_project(projects_dir):
     make_project(projects_dir, "beta", title="Second thesis")
     (projects_dir / ".active").write_text("alpha")
     r = run_script("state.py", "show", projects_dir=projects_dir, check=True)
-    assert "== Project: alpha - First thesis  [active project] ==" in r.stderr
+    assert "== Project: alpha - First thesis  [set with project.py use] ==" in r.stderr
     r = run_script("state.py", "show", "--project", "beta", projects_dir=projects_dir, check=True)
     assert "== Project: beta - Second thesis  [--project] ==" in r.stderr
     assert "the active project is 'alpha'; this command uses 'beta'" in r.stderr
@@ -181,4 +181,4 @@ def test_list_and_use_are_explicit(projects_dir):
     out = run_script("project.py", "use", "beta", projects_dir=projects_dir, check=True).stdout
     assert "switched active project: alpha -> beta (Second thesis)" in out
     out = run_script("project.py", "list", projects_dir=projects_dir, check=True).stdout
-    assert "* beta" in out and "  alpha" in out and "0/6" in out and "active project (active project)" in out
+    assert "* beta" in out and "  alpha" in out and "0/6" in out and "active project (set with project.py use)" in out

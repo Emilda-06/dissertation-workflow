@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import html
+import os
 import re
 from datetime import datetime
 
@@ -113,6 +114,7 @@ def main():
     ap.add_argument("--all-projects", action="store_true")
     a = ap.parse_args()
     if a.all_projects:
+        os.environ["DISSERTATION_QUIET"] = "1"          # one table, not one banner per project
         for slug in list_projects():
             select_project(slug)
             cfg = load_config()

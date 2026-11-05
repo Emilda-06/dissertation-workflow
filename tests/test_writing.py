@@ -152,3 +152,19 @@ def test_defence_brief(proj, projects_dir):
     brief = (proj.chapters / "chapter_two" / "defence_brief.md").read_text(encoding="utf-8")
     assert "Key claims" in brief and "@khan2022federated" in brief and "Likely questions" in brief
     assert "abstract only" in brief and "@smith2021edge" in brief and "wrote" in r.stdout
+
+
+def test_paraphrase_with_many_synonym_swaps(proj):
+    d = proj.chapters / "chapter_two" / "research" / "fulltext"
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "x.txt").write_text("[page 1]\nThe combination of increasing global smartphone penetration and recent advances "
+                             "in computer vision made possible by deep learning has paved the way for smartphone-assisted "
+                             "disease diagnosis.\n", encoding="utf-8")
+    c = textsim.build_corpus()
+    swapped = ("The mixture of growing worldwide smartphone penetration and recent progress in computer vision enabled "
+               "by deep learning has opened the way for smartphone-assisted disease diagnosis.")
+    m = textsim.best_match(swapped, c)
+    assert m and m.kind == "paraphrase" and m.score >= 0.85
+    own = ("Cheap phones and better image models now make it realistic for farmers to check a leaf in the field "
+           "rather than wait for an expert.")
+    assert textsim.best_match(own, c) is None

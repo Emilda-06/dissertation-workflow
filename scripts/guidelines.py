@@ -35,6 +35,8 @@ from common import (NUMBER_WORDS, chapter_dir, chapter_file, die, init_cli, load
                     project, read_front_matter, save_json, slugify)
 from defaults import TYPE_KEYWORDS, defaults_for
 
+TYPE_NOUNS = {"introduction": "introduction", "literature": "literature review", "methodology": "methodology chapter",
+              "design": "design chapter", "results": "results chapter", "conclusion": "conclusion"}
 SUPPORTED = {".docx", ".pdf", ".md", ".txt"}
 AUTO_CONFIDENCE = 0.8
 ELEMENT_KINDS = {"figure", "table", "list", "equation", "code"}
@@ -917,7 +919,7 @@ def evaluate(n: int, cfg: dict, body: str | None = None) -> dict:
     else:
         lo, hi = defaults_for(ch_plan.get("type", ""))["words"]
         if words and (words < lo * 0.7 or words > hi * 1.5):
-            warnings.append(f"{words:,} words; a typical {ch_plan.get('type') or 'chapter'} is {lo:,}-{hi:,} "
+            warnings.append(f"{words:,} words; a typical {TYPE_NOUNS.get(ch_plan.get('type', ''), 'chapter')} is {lo:,}-{hi:,} "
                             "(set words: [min, max] in project.yaml or the spec if your guideline differs)")
     st_spec = spec_status(cfg) if project().guidelines.exists() and guideline_files() else None
     if st_spec:

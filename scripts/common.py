@@ -133,7 +133,7 @@ def active_source() -> tuple[str | None, str]:
     if ACTIVE_FILE.exists():
         s = ACTIVE_FILE.read_text(encoding="utf-8").strip()
         if s:
-            return s, "active project"
+            return s, "set with project.py use"
     found = list_projects()
     return (found[0], "the only project") if len(found) == 1 else (None, "")
 
