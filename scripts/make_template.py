@@ -1,11 +1,21 @@
-"""Generate config/templates/reference.docx - the Word style template every build uses.
+"""Generate the active project's Word style template: projects/<name>/templates/reference.docx.
 
-Reads font, size, spacing and margins from config/project.yaml (format: section).
-Re-run after changing those settings:  .venv/Scripts/python.exe scripts/make_template.py
+Reads font, size, spacing, margins and paper size from project.yaml (format: section). If the project
+has a university Word *formatting* template (format.template in project.yaml, or a .docx in guidelines/
+detected as a formatting template), its styles are the starting point and are kept as they are; only
+styles pandoc needs and the template lacks are added (set format.override_template: true to apply the
+format: settings on top anyway).
+
+build.py regenerates the template automatically whenever these inputs change. Manual run:
+  python scripts/make_template.py [--force]
 """
 from __future__ import annotations
 
+import argparse
+import hashlib
+import json
 import subprocess
+from pathlib import Path
 
 from docx import Document
 from docx.enum.style import WD_STYLE_TYPE
@@ -14,7 +24,11 @@ from docx.oxml import parse_xml
 from docx.oxml.ns import nsdecls, qn
 from docx.shared import Cm, Pt, RGBColor
 
-from common import TEMPLATES, load_config, require_tool, setup_stdout
+from common import SHARED_TEMPLATES, die, init_cli, load_config, project, require_tool
+
+PAPER = {"a4": (21.0, 29.7), "letter": (21.59, 27.94)}
+HASH_FILE = ".reference.hash"
+CREATED: set[str] = set()
 
 
 def set_font(style, name: str, size: float | None = None, bold=None, italic=None):
@@ -66,6 +80,7 @@ def get_style(doc, name, kind=WD_STYLE_TYPE.PARAGRAPH, base="Normal"):
         s = doc.styles.add_style(name, kind)
         if kind == WD_STYLE_TYPE.PARAGRAPH and base:
             s.base_style = doc.styles[base]
+        CREATED.add(name)
         return s
 
 
@@ -96,116 +111,223 @@ TABLE_STYLE = f"""
 </w:style>"""
 
 
-def main():
-    setup_stdout()
-    cfg = load_config()
-    fmt = cfg.get("format", {})
+def format_template(cfg: dict) -> Path | None:
+    """The university formatting template for this project, if any."""
+    p = project()
+    fmt = cfg.get("format", {}) or {}
+    if fmt.get("template"):
+        t = Path(fmt["template"])
+        t = t if t.is_absolute() else p.root / t
+        if not t.exists():
+            die(f"format.template {t} not found")
+        return t
+    if p.manifest.exists():
+        for name, rec in json.loads(p.manifest.read_text(encoding="utf-8")).get("files", {}).items():
+            if rec.get("kind") == "format" and (p.guidelines / name).exists():
+                return p.guidelines / name
+    return None
+
+
+def inputs_hash(cfg: dict) -> str:
+    fmt = cfg.get("format", {}) or {}
+    tpl = format_template(cfg)
+    basis = {"format": fmt, "template": hashlib.sha256(tpl.read_bytes()).hexdigest() if tpl else None,
+             "script": hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}
+    return hashlib.sha256(json.dumps(basis, sort_keys=True, default=str).encode()).hexdigest()
+
+
+def reference_path() -> Path:
+    return project().templates / "reference.docx"
+
+
+def ensure_reference(cfg: dict, force: bool = False, quiet: bool = True) -> Path:
+    """Regenerate the project's reference.docx when its inputs changed. A reference.docx you placed in
+    templates/ yourself (no hash file next to it) is never overwritten unless force=True."""
+    out = reference_path()
+    hfile = out.parent / HASH_FILE
+    want = inputs_hash(cfg)
+    if out.exists() and not hfile.exists() and not force:
+        return out                                   # user-provided template
+    if out.exists() and hfile.exists() and hfile.read_text().strip() == want and not force:
+        return out
+    generate(cfg, out)
+    hfile.write_text(want, encoding="utf-8")
+    if not quiet:
+        print(f"wrote {project().rel(out)}")
+    return out
+
+
+def clear_body(doc) -> None:
+    body = doc.element.body
+    for child in list(body):
+        if child.tag != qn("w:sectPr"):
+            body.remove(child)
+
+
+def add_page_footer(sec, font: str, size: float) -> None:
+    """Centred PAGE field in the footer (used when Word does not finalise the document)."""
+    footer = sec.footer
+    footer.is_linked_to_previous = False
+    p = footer.paragraphs[0] if footer.paragraphs else footer.add_paragraph()
+    for r in list(p.runs):
+        r._element.getparent().remove(r._element)
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    for xml in ('<w:r %s><w:fldChar w:fldCharType="begin"/></w:r>',
+                '<w:r %s><w:instrText xml:space="preserve"> PAGE </w:instrText></w:r>',
+                '<w:r %s><w:fldChar w:fldCharType="separate"/></w:r>',
+                '<w:r %s><w:t>1</w:t></w:r>',
+                '<w:r %s><w:fldChar w:fldCharType="end"/></w:r>'):
+        p._p.append(parse_xml(xml % nsdecls("w")))
+    for r in p.runs:
+        r.font.name = font
+        r.font.size = Pt(size)
+
+
+def generate(cfg: dict, out: Path) -> Path:
+    CREATED.clear()
+    fmt = cfg.get("format", {}) or {}
     font = fmt.get("font", "Times New Roman")
     size = float(fmt.get("font_size", 12))
     line = float(fmt.get("line_spacing", 1.5))
     table_size = float(fmt.get("table_font_size", size))
-    margins = fmt.get("margins_cm", {})
+    margins = fmt.get("margins_cm", {}) or {}
+    paper = PAPER.get(str(fmt.get("paper", "A4")).lower(), PAPER["a4"])
+    out.parent.mkdir(parents=True, exist_ok=True)
 
-    TEMPLATES.mkdir(parents=True, exist_ok=True)
-    base = TEMPLATES / "reference.docx"
-    subprocess.run([require_tool("pandoc"), "-o", str(base), "--print-default-data-file", "reference.docx"],
-                   check=True)
-    doc = Document(str(base))
+    university = format_template(cfg)
+    respect = bool(university) and not fmt.get("override_template", False)
+    if university:
+        doc = Document(str(university))
+        clear_body(doc)
+    elif (SHARED_TEMPLATES / "reference.docx").exists():
+        doc = Document(str(SHARED_TEMPLATES / "reference.docx"))      # shared default (pandoc styles)
+    else:
+        subprocess.run([require_tool("pandoc"), "-o", str(out), "--print-default-data-file", "reference.docx"],
+                       check=True)
+        doc = Document(str(out))
     J, C, L = WD_ALIGN_PARAGRAPH.JUSTIFY, WD_ALIGN_PARAGRAPH.CENTER, WD_ALIGN_PARAGRAPH.LEFT
 
-    # document defaults
-    rpr_default = doc.styles.element.find(qn("w:docDefaults")).find(qn("w:rPrDefault")).find(qn("w:rPr"))
-    for el in rpr_default.findall(qn("w:rFonts")):
-        rpr_default.remove(el)
-    rpr_default.insert(0, parse_xml(f'<w:rFonts {nsdecls("w")} w:ascii="{font}" w:hAnsi="{font}" w:cs="{font}" w:eastAsia="{font}"/>'))
+    def styled(name, kind=WD_STYLE_TYPE.PARAGRAPH, base="Normal"):
+        """The style to format, or None when an existing university style must be left alone."""
+        s = get_style(doc, name, kind, base)
+        return None if respect and name not in CREATED else s
 
-    body_styles = ["Normal", "Body Text", "First Paragraph"]
-    for name in body_styles:
-        s = get_style(doc, name)
-        set_font(s, font, size)
-        para(s, J, line, 0, 6)
-    for name in ("Compact",):
-        s = get_style(doc, name)
+    if not respect:
+        rpr_default = doc.styles.element.find(qn("w:docDefaults")).find(qn("w:rPrDefault")).find(qn("w:rPr"))
+        for el in rpr_default.findall(qn("w:rFonts")):
+            rpr_default.remove(el)
+        rpr_default.insert(0, parse_xml(f'<w:rFonts {nsdecls("w")} w:ascii="{font}" w:hAnsi="{font}" '
+                                        f'w:cs="{font}" w:eastAsia="{font}"/>'))
+
+    for name in ("Normal", "Body Text", "First Paragraph"):
+        if (s := styled(name)) is not None:
+            set_font(s, font, size)
+            para(s, J, line, 0, 6)
+    if (s := styled("Compact")) is not None:
         set_font(s, font, size)
         para(s, L, 1.0 if line <= 1.15 else 1.15, 0, 3)
-    s = get_style(doc, "Block Text")
-    set_font(s, font, size, italic=False)
-    para(s, J, 1.0, 6, 6)
-    s.paragraph_format.left_indent = Cm(1.27)
-    s.paragraph_format.right_indent = Cm(1.27)
+    if (s := styled("Block Text")) is not None:
+        set_font(s, font, size, italic=False)
+        para(s, J, 1.0, 6, 6)
+        s.paragraph_format.left_indent = Cm(1.27)
+        s.paragraph_format.right_indent = Cm(1.27)
 
     # headings: H1 centred chapter titles; H2-H4 left aligned numbered sections
-    h_sizes = fmt.get("heading_sizes", {1: size, 2: size, 3: size, 4: size})
+    h_sizes = {int(k): v for k, v in (fmt.get("heading_sizes") or {}).items()}
     for lvl in range(1, 7):
-        s = get_style(doc, f"Heading {lvl}")
-        set_font(s, font, float(h_sizes.get(lvl, size)), bold=True, italic=(lvl >= 4))
-        if lvl == 1:
-            para(s, C, 1.5, 0, 18, keep_next=True, page_break=True)
-        else:
-            para(s, L, 1.5, 12, 6, keep_next=True)
-    s = get_style(doc, "Front Heading")
-    set_font(s, font, float(h_sizes.get(1, size)), bold=True)
-    para(s, C, 1.5, 0, 18, keep_next=True)
+        if (s := styled(f"Heading {lvl}")) is not None:
+            set_font(s, font, float(h_sizes.get(lvl, size)), bold=True, italic=(lvl >= 4))
+            if lvl == 1:
+                para(s, C, 1.5, 0, 18, keep_next=True, page_break=True)
+            else:
+                para(s, L, 1.5, 12, 6, keep_next=True)
+    if (s := styled("Front Heading")) is not None:
+        set_font(s, font, float(h_sizes.get(1, size)), bold=True)
+        para(s, C, 1.5, 0, 18, keep_next=True)
 
     for name in ("Title", "Subtitle", "Author", "Date", "Abstract", "Abstract Title"):
-        s = get_style(doc, name)
-        set_font(s, font, size)
-        para(s, C, line, 0, 6)
+        if (s := styled(name)) is not None:
+            set_font(s, font, size)
+            para(s, C, line, 0, 6)
 
     # captions: centred; table caption above table, figure caption below image
     for name in ("caption", "Image Caption", "Table Caption"):
-        s = get_style(doc, name)
-        set_font(s, font, float(fmt.get("caption_font_size", size)), bold=False, italic=False)
-        para(s, C, 1.0, 6, 12 if name != "Table Caption" else 6, keep_next=(name == "Table Caption"))
+        if (s := styled(name)) is not None:
+            set_font(s, font, float(fmt.get("caption_font_size", size)), bold=False, italic=False)
+            para(s, C, 1.0, 6, 12 if name != "Table Caption" else 6, keep_next=(name == "Table Caption"))
     for name in ("Figure", "Captioned Figure"):
-        s = get_style(doc, name)
-        para(s, C, 1.0, 6, 0, keep_next=True)
+        if (s := styled(name)) is not None:
+            para(s, C, 1.0, 6, 0, keep_next=True)
 
-    s = get_style(doc, "Bibliography")
-    set_font(s, font, size)
-    para(s, L, line, 0, 8)
-    s.paragraph_format.left_indent = Cm(1.27)
-    s.paragraph_format.first_line_indent = Cm(-1.27)
+    if (s := styled("Bibliography")) is not None:
+        set_font(s, font, size)
+        para(s, L, line, 0, 8)
+        s.paragraph_format.left_indent = Cm(1.27)
+        s.paragraph_format.first_line_indent = Cm(-1.27)
 
     for lvl in range(1, 4):
-        s = get_style(doc, f"TOC {lvl}")
-        set_font(s, font, size, bold=(lvl == 1))
+        if (s := styled(f"TOC {lvl}")) is not None:
+            set_font(s, font, size, bold=(lvl == 1))
+            para(s, L, 1.15, 0, 4)
+            s.paragraph_format.left_indent = Cm(0.6 * (lvl - 1))
+    if (s := styled("table of figures")) is not None:
+        set_font(s, font, size)
         para(s, L, 1.15, 0, 4)
-        s.paragraph_format.left_indent = Cm(0.6 * (lvl - 1))
-    s = get_style(doc, "table of figures")
-    set_font(s, font, size)
-    para(s, L, 1.15, 0, 4)
-    s = get_style(doc, "TOC Heading")
-    set_font(s, font, size, bold=True)
-    para(s, C, 1.5, 0, 12)
+    if (s := styled("TOC Heading")) is not None:
+        set_font(s, font, size, bold=True)
+        para(s, C, 1.5, 0, 12)
 
-    for name in ("Hyperlink",):
+    if not respect:
         try:
-            hs = doc.styles[name]
+            hs = doc.styles["Hyperlink"]
             hs.font.color.rgb = RGBColor(0, 0, 0)
             hs.font.underline = False
         except KeyError:
             pass
-    for name in ("Footnote Text",):
-        s = get_style(doc, name)
+    if (s := styled("Footnote Text")) is not None:
         set_font(s, font, 10)
 
     # table style: full grid, bold shaded header row that repeats across pages
     styles_el = doc.styles.element
-    for st in styles_el.findall(qn("w:style")):
-        if st.get(qn("w:styleId")) == "Table":
-            styles_el.remove(st)
-    styles_el.append(parse_xml(TABLE_STYLE.replace("{font}", font).replace("{size}", str(int(table_size * 2)))))
+    has_table = any(st.get(qn("w:styleId")) == "Table" for st in styles_el.findall(qn("w:style")))
+    if not (respect and has_table):
+        for st in styles_el.findall(qn("w:style")):
+            if st.get(qn("w:styleId")) == "Table":
+                styles_el.remove(st)
+        styles_el.append(parse_xml(TABLE_STYLE.replace("{font}", font).replace("{size}", str(int(table_size * 2)))))
 
+    if not respect:
+        for sec in doc.sections:
+            sec.page_width, sec.page_height = Cm(paper[0]), Cm(paper[1])
+            sec.top_margin = Cm(margins.get("top", 2.54))
+            sec.bottom_margin = Cm(margins.get("bottom", 2.54))
+            sec.left_margin = Cm(margins.get("left", 2.54))
+            sec.right_margin = Cm(margins.get("right", 2.54))
+    footer_font = fmt.get("footer_font", font)
+    footer_size = float(fmt.get("footer_font_size", size))
     for sec in doc.sections:
-        sec.page_width, sec.page_height = Cm(21.0), Cm(29.7)
-        sec.top_margin = Cm(margins.get("top", 2.54))
-        sec.bottom_margin = Cm(margins.get("bottom", 2.54))
-        sec.left_margin = Cm(margins.get("left", 2.54))
-        sec.right_margin = Cm(margins.get("right", 2.54))
+        if not respect or not any(p.text.strip() for p in sec.footer.paragraphs):
+            add_page_footer(sec, footer_font, footer_size)
+    # Word and LibreOffice refresh the contents / lists when the document is opened
+    settings = doc.settings.element
+    if settings.find(qn("w:updateFields")) is None:
+        settings.append(parse_xml(f'<w:updateFields {nsdecls("w")} w:val="true"/>'))
+    doc.save(str(out))
+    return out
 
-    doc.save(str(base))
-    print(f"wrote {base}  ({font} {size:g}pt, line spacing {line:g}, justified body, centred H1)")
+
+def main():
+    init_cli()
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--force", action="store_true")
+    args = ap.parse_args()
+    cfg = load_config()
+    out = ensure_reference(cfg, force=args.force, quiet=False)
+    tpl = format_template(cfg)
+    fmt = cfg.get("format", {}) or {}
+    print(f"{project().rel(out)}: " + (f"based on {tpl.name}" if tpl else
+          f"{fmt.get('font', 'Times New Roman')} {fmt.get('font_size', 12)}pt, line spacing "
+          f"{fmt.get('line_spacing', 1.5)}, paper {fmt.get('paper', 'A4')}"))
 
 
 if __name__ == "__main__":

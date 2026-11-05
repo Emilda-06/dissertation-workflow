@@ -1,6 +1,7 @@
 # ---------------------------------------------------------------------------
-# Dissertation settings. Copy this file to config/project.yaml and fill it in.
-# config/project.yaml is git-ignored; the pipeline reads it on every run.
+# Dissertation settings - the template for every project.
+# Create a project with:  python scripts/project.py new <name> --title "..."
+# which copies this file to projects/<name>/project.yaml (your copy is never committed here).
 # ---------------------------------------------------------------------------
 project:
   title: "Your Dissertation Title"
@@ -13,35 +14,53 @@ project:
   supervisor: "Your Supervisor"
   document_type: "Dissertation"
   domain: "your research area, e.g. machine learning, distributed systems"
-  # Source of truth for the research problem, aim, objectives and research questions
-  # (usually your Chapter 1 once it is written or imported):
+  # Source of truth for the research problem, aim, objectives and research questions, read by
+  # context.py. A path inside the project (e.g. existing/proposal.docx) or a chapter file.
+  # Empty = chapter 1 once it exists, otherwise a file named *proposal* in existing/.
   current_topic_source: "output/chapters/chapter_one/chapter.md"
+  # Every value above can be used on the cover as {{UPPER_CASE_NAME}}, e.g. {{STUDENT_NAME}}.
+  # Also available: {{DATE}} {{YEAR}} {{DOCUMENT}}.
 
 # Chapter plan. 'type' tells the writer what kind of chapter it is
 # (introduction | literature | methodology | design | results | conclusion).
-# 'guideline' = file(s) in config/guidelines/ the chapter must follow (their sections override defaults).
-# 'min_references' = minimum number of distinct sources the guideline requires.
+# Guidelines do NOT need to be named here: put them in guidelines/ and run guidelines.py scan.
+# 'min_references' and 'words' are optional; requirements/spec.yaml (from your guidelines) wins.
 chapters:
-  1: {title: "Introduction", type: introduction, guideline: "", min_references: 20}
-  2: {title: "Literature Review", type: literature, guideline: "", min_references: 20}
-  3: {title: "Methodology", type: methodology, guideline: ""}
-  4: {title: "System Design and Implementation", type: design, guideline: ""}
-  5: {title: "Testing, Results and Evaluation", type: results, guideline: ""}
-  6: {title: "Conclusion and Recommendations", type: conclusion, guideline: ""}
+  1: {title: "Introduction", type: introduction, min_references: 20}
+  2: {title: "Literature Review", type: literature, min_references: 20}
+  3: {title: "Methodology", type: methodology}
+  4: {title: "System Design and Implementation", type: design}
+  5: {title: "Testing, Results and Evaluation", type: results}
+  6: {title: "Conclusion and Recommendations", type: conclusion}
+
+# Optional appendices (output/appendices/appendix_<letter>/appendix.md), placed after the references.
+# appendices:
+#   A: {title: "Interview guide"}
 
 references:
-  style: "Harvard (Cite Them Right)"
+  style: "Harvard (Cite Them Right)"  # harvard | apa | ieee | a .csl file in templates/
   min_year: 2016                    # PREFERRED range: min_year to today (not a hard cutoff)
   target_recent_share: 80           # aim for at least this % of a chapter's sources from min_year onwards
   # Older sources are allowed when justified (e.g. the original definition of a concept, a
   # standard, a seminal paper); the checker warns, it never blocks.
+
+zotero:
+  enabled: true                     # false = this project does not use Zotero at all
+  collection: ""                    # the Zotero collection for THIS dissertation (set by project.py new)
+  library_id: 1                     # 1 = My Library; a group library has its own number
 
 format:
   font: "Times New Roman"
   font_size: 12
   table_font_size: 12
   caption_font_size: 12
+  footer_font_size: 12
   line_spacing: 1.5
   heading_sizes: {1: 12, 2: 12, 3: 12, 4: 12}
   margins_cm: {top: 2.54, bottom: 2.54, left: 2.54, right: 2.54}
-  cover: true                       # put config/cover.docx (or cover.pdf) in front of every build
+  paper: A4                         # A4 | Letter
+  cover: true                       # put cover.docx (or cover.pdf) from the project folder in front of every build
+  finalizer: auto                   # auto | word | libreoffice | none (auto = Word if installed)
+  pdfa: false                       # PDF/A for submission portals (with --pdf)
+  # template: guidelines/University_Template.docx   # university Word template: its styles are used as-is
+  # override_template: false                       # true = apply the settings above on top of it

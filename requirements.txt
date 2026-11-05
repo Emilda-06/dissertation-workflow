@@ -1,10 +1,12 @@
-python-docx
-pyyaml
-requests
-rapidfuzz
-pypdf
-pypdfium2
-matplotlib
-seaborn
-pandas
-numpy
+# Pinned versions known to work together (python scripts/doctor.py --fix installs them).
+python-docx==1.2.0
+PyYAML==6.0.3
+requests==2.34.2
+RapidFuzz==3.14.6
+pypdf==6.21.4
+pypdfium2==5.14.0
+pillow==13.0.0
+matplotlib==3.11.2
+seaborn==0.13.2
+pandas==3.1.1
+numpy==2.5.4

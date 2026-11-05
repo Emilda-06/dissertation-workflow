@@ -20,9 +20,9 @@ from pathlib import Path
 
 from rapidfuzz import fuzz
 
-from common import (ensure_zotero, NUMBER_WORDS, ROOT, chapter_dir, chapter_file, chapter_title, die, ensure_chapter_dirs,
-                    entry_year, first_author_family, http_get, load_config, load_library, normalize_title,
-                    realign_grid_tables, require_tool, setup_stdout, write_front_matter)
+from common import (NUMBER_WORDS, chapter_file, chapter_slug, chapter_title, die, ensure_chapter_dirs,
+                    entry_year, first_author_family, http_get, init_cli, load_config, load_library, normalize_title,
+                    project, realign_grid_tables, require_tool, write_front_matter)
 import refs
 
 REF_HEADINGS = re.compile(r"^(references?|reference list|bibliography|works cited)$", re.I)
@@ -265,15 +265,14 @@ def convert_captions(lines: list[str], n: int, notes: list[str]) -> list[str]:
 
 
 def main():
-    setup_stdout()
-    cfg = load_config()
-    ensure_zotero(cfg)            # workflow rule: Zotero must be open
+    init_cli()
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("docx")
     p.add_argument("chapter", type=int)
     p.add_argument("--title")
     p.add_argument("--overwrite", action="store_true")
     args = p.parse_args()
+    cfg = load_config()
     n = args.chapter
     src = Path(args.docx).resolve()
     if not src.exists():
@@ -318,7 +317,7 @@ def main():
     write_front_matter(chapter_file(n), meta, body)
 
     rep = [f"# Import report - Chapter {NUMBER_WORDS[n].title()}", "",
-           f"Source: `{src.name}`  ", f"Output: `chapter_{NUMBER_WORDS[n]}/chapter.md`", "",
+           f"Source: `{src.name}`  ", f"Output: `{chapter_slug(n)}/chapter.md`", "",
            "## Reference list", "", "| # | Status | Key | Reference (as written) |", "|---|---|---|---|"]
     for i, (ref, key, how) in enumerate(report_refs, 1):
         status = "linked" if key else "NOT FOUND"
@@ -331,10 +330,10 @@ def main():
     (d / "import_report.md").write_text("\n".join(rep) + "\n", encoding="utf-8")
 
     linked = sum(1 for _, k, _ in report_refs if k)
-    print(f"\nImported -> {chapter_file(n).relative_to(ROOT)}")
+    print(f"\nImported -> {project().rel(chapter_file(n))}")
     print(f"  references linked: {linked}/{len(report_refs)} | unconverted in-text citations: {len(set(unresolved))} "
           f"| caption notes: {len(notes)}")
-    print(f"  review: {(d / 'import_report.md').relative_to(ROOT)}")
+    print(f"  review: {project().rel(d / 'import_report.md')}")
 
 
 if __name__ == "__main__":

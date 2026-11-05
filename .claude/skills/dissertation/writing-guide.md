@@ -57,7 +57,18 @@ Rules:
 - A typical 5,000-word chapter has 3–6 figures, 2–5 tables and 2–5 lists. The literature review
   should include at least one summary table of related studies.
 
-## Chapter structures (default; a guideline in config/guidelines/ overrides these)
+## Chapter structures (defaults)
+
+These defaults (also in `scripts/defaults.py`) are **merged with** the project's guidelines, never
+used instead of them. Run `PY scripts/guidelines.py outline <n>` to see the merged skeleton:
+- **template** sections come from the guideline: always present, in the guideline's order, with its
+  titles word for word (unless the spec says `title_policy: adapt`). Never drop, merge or reorder them.
+- **default** sections are standard parts the guideline does not mention; add them where they fit.
+- **expansion**: a short template is a floor, not a ceiling. Give each template section the depth a
+  dissertation needs (2-4 subsections, evidence, a figure or table) so the chapter reaches its length.
+- Put `{#sec:<id>}` (the spec id) on each template heading, and `<!-- req: <ID> -->` in the paragraph
+  that meets each free-text requirement, so `check.py` and `compliance.md` can trace them.
+
 
 - **Introduction:** Introduction; Background of the study; Problem statement; Aim; Objectives;
   Research questions; Justification / significance; Scope and delimitations; Limitations;
@@ -123,3 +134,19 @@ Figures: follow `diagram-standard.md`, which covers picking, drawing, captioning
   or `Source: @key.` Your own diagrams need no source line.
 - Table captions describe the comparison: "Comparison of Zero Trust frameworks by scope,
   enforcement point and maturity".
+
+## Original synthesis (what lowers similarity and raises marks)
+
+- **Write from notes, not from sources.** Never draft with a source open; never keep a source's
+  sentence structure and swap words (patchwriting). `check.py` blocks close paraphrases.
+- **Lead with the argument, not the author.** "Temporal defences catch slow attacks that single-round
+  filters miss [@a; @b]" synthesises; "@a proposed X. @b developed Y." only lists.
+- **Group by theme, compare across sources:** where they agree, disagree, and why; which evidence is
+  stronger; what it means for this study. `check.py` flags descriptive paragraphs and lists of studies.
+- **Use the author's input** (`author_input.md`): their view, examples and context make the chapter
+  theirs and are not found in any source.
+- **Quote rarely and exactly**, short, with the page. Quotations in quotation marks are excluded from
+  the similarity estimate (and Turnitin can exclude them too).
+- **Re-using your earlier submissions** (proposal, coursework) counts as similarity: cite them or rewrite.
+- **Keep the project's style** (`style.py show`): the same spelling, person, sentence rhythm and
+  terminology in every chapter.

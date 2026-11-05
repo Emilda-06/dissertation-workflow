@@ -12,7 +12,7 @@ Checks (see .claude/skills/dissertation/diagram-standard.md):
   * all: text size as printed at the width used in chapter.md (minimum 8 pt), figure not taller than a page
 
 Usage:
-  diagrams.py <chapter-number> [--force] [--only name]
+  diagrams.py <chapter-number | appendix-letter> [--force] [--only name]
 """
 from __future__ import annotations
 
@@ -26,9 +26,9 @@ import xml.etree.ElementTree as ET
 
 from PIL import Image
 
-from common import PYTHON, ROOT, TEMPLATES, chapter_dir, chapter_file, require_tool, setup_stdout
+from common import PYTHON, ROOT, appendix_file, chapter_dir, chapter_file, init_cli, load_config, project, require_tool
 
-TEXT_WIDTH_PT = (21.0 - 2 * 2.54) / 2.54 * 72      # 451 pt
+TEXT_WIDTH_PT = (21.0 - 2 * 2.54) / 2.54 * 72      # 451 pt on A4 with 2.54 cm margins (set from config in main)
 MAX_HEIGHT_PT = 600                                  # leaves room for caption on an A4 page
 MIN_FONT_PT = 8.0
 SCALE = 3
@@ -114,8 +114,12 @@ def drawio_problems(path) -> tuple[list[str], float]:
 
 # ---------------------------------------------------------------- printed size check
 
-def placed_width_pt(n: int, png_name: str) -> float:
-    text = chapter_file(n).read_text(encoding="utf-8") if chapter_file(n).exists() else ""
+def doc_file(n):
+    return appendix_file(n) if isinstance(n, str) else chapter_file(n)
+
+
+def placed_width_pt(n, png_name: str) -> float:
+    text = doc_file(n).read_text(encoding="utf-8") if doc_file(n).exists() else ""
     m = re.search(rf"\]\(diagrams/{re.escape(png_name)}\)\{{[^}}]*width=(\d+)%", text)
     return TEXT_WIDTH_PT * (int(m.group(1)) / 100 if m else 1.0)
 
@@ -143,8 +147,8 @@ def render(n, src, force):
     problems: list[str] = []
     if src.suffix == ".mmd":
         ok = run([require_tool("mmdc"), "-i", str(src), "-o", str(out), "-s", str(SCALE), "-b", "white",
-                  "-c", str(TEMPLATES / "mermaid.json"), "-p", str(TEMPLATES / "puppeteer.json")])
-        font_px = float(json.loads((TEMPLATES / "mermaid.json").read_text())["themeVariables"]["fontSize"].rstrip("px"))
+                  "-c", str(project().template("mermaid.json")), "-p", str(project().template("puppeteer.json"))])
+        font_px = float(json.loads(project().template("mermaid.json").read_text())["themeVariables"]["fontSize"].rstrip("px"))
         font_scaled = font_px * SCALE
     elif src.suffix == ".drawio":
         problems, min_font = drawio_problems(src)
@@ -152,7 +156,7 @@ def render(n, src, force):
                   "--output", str(out), str(src)])
         font_scaled = min_font * SCALE
     elif src.suffix == ".py":
-        env = {**os.environ, "MPLSTYLE": str(TEMPLATES / "thesis.mplstyle"), "MPLBACKEND": "Agg",
+        env = {**os.environ, "MPLSTYLE": str(project().template("thesis.mplstyle")), "MPLBACKEND": "Agg",
                "WORKFLOW_SCRIPTS": str(ROOT / "scripts")}
         ok = run([str(PYTHON), src.name], cwd=src.parent, env=env)
         font_scaled = 10 / 72 * 300          # smallest chart text (ticks) 10 pt at 300 dpi
@@ -169,17 +173,23 @@ def render(n, src, force):
 
 
 def main():
-    setup_stdout()
+    global TEXT_WIDTH_PT
+    init_cli()
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("chapter", type=int)
+    p.add_argument("chapter", help="chapter number, or appendix letter")
     p.add_argument("--force", action="store_true")
     p.add_argument("--only")
     args = p.parse_args()
-    d = chapter_dir(args.chapter) / "diagrams"
+    fmt = load_config().get("format") or {}
+    width_cm = {"letter": 21.59}.get(str(fmt.get("paper", "A4")).lower(), 21.0)
+    m = fmt.get("margins_cm") or {}
+    TEXT_WIDTH_PT = (width_cm - float(m.get("left", 2.54)) - float(m.get("right", 2.54))) / 2.54 * 72
+    n = args.chapter.upper() if args.chapter.isalpha() else int(args.chapter)
+    d = (appendix_file(n).parent if isinstance(n, str) else chapter_dir(n)) / "diagrams"
     srcs = sorted(x for ext in ("*.mmd", "*.drawio", "*.py") for x in d.glob(ext) if not x.name.startswith("_"))
     if args.only:
         srcs = [s for s in srcs if s.stem == args.only or s.name == args.only]
-    results = [render(args.chapter, s, args.force) for s in srcs]
+    results = [render(n, s, args.force) for s in srcs]
     done = [r for r in results if r is not None]
     if not done:
         print("all diagrams up to date (use --force to re-render and re-check)")
