@@ -145,7 +145,7 @@ def main():
             "python scripts/project.py new <name> --title \"...\"  (or: project.py use <name>)")
     else:
         add("active project", True, p.slug)
-        originals = sorted(p.cover_dir.glob("*")) if p.cover_dir.exists() else []
+        originals = sorted(f for f in p.cover_dir.glob("*") if f.is_file()) if p.cover_dir.exists() else []
         add("cover page", p.cover_template.exists() or bool(originals),
             "template " + p.cover_template.name if p.cover_template.exists() else
             (originals[0].name + " (as a picture)" if originals else "missing"),

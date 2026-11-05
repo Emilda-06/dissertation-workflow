@@ -212,6 +212,17 @@ def read_existing(path: Path) -> str:
     return guidelines.render(entries)
 
 
+def imported_drafts() -> set[str]:
+    """Past-work files the chapters were imported from (front matter 'imported_from')."""
+    from common import read_front_matter
+    names = set()
+    for ch in project().chapters.glob("chapter_*/chapter.md") if project().chapters.exists() else []:
+        src = str((read_front_matter(ch)[0] or {}).get("imported_from") or "")
+        if src:
+            names.add(Path(re.sub(r"\s*\(.*\)\s*$", "", src)).name)
+    return names
+
+
 def build_corpus(include_own: bool = True, include_abstracts: bool = True) -> Corpus:
     p = project()
     c = Corpus()
@@ -235,7 +246,10 @@ def build_corpus(include_own: bool = True, include_abstracts: bool = True) -> Co
                     label = labels.get(safe) or (f"doi:{doi}" if doi else it.get("title", "")[:40])
                     c.add(f"{label} (abstract)", "abstract", ab)
     if include_own and p.existing.exists():
+        drafts = imported_drafts()
         for f in sorted(p.existing.iterdir()):
+            if f.name in drafts:
+                continue          # an earlier draft of this dissertation, not a separate submission
             if f.is_file() and f.name != "NOTES.md" and f.suffix.lower() in (".docx", ".pdf", ".md", ".txt"):
                 try:
                     c.add(f"your earlier work: {f.name}", "own", read_existing(f))

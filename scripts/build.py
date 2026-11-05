@@ -323,7 +323,7 @@ def prepare_cover(cfg: dict, document_label: str, mode: str) -> tuple[str, str]:
     p = project()
     p.build.mkdir(parents=True, exist_ok=True)
     docx = p.cover_template                                     # made from your cover by cover.py
-    originals = sorted(p.cover_dir.glob("*")) if p.cover_dir.exists() else []
+    originals = sorted(f for f in p.cover_dir.glob("*") if f.is_file()) if p.cover_dir.exists() else []
     if docx.exists():
         filled = p.build / "cover_filled.docx"
         fill_placeholders(docx, filled, cover_values(cfg, document_label))

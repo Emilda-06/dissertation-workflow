@@ -233,3 +233,19 @@ def test_old_layout_is_upgraded_on_first_use(projects_dir):
     assert "docs/past_work/proposal.docx" in cfg and "docs/guidelines/uni.docx" in cfg
     assert "docs/past_work/report.md" in p.style_file.read_text()
     assert common.upgrade_layout(p) == []                                 # idempotent
+
+
+def test_imported_draft_is_not_self_plagiarism_but_a_proposal_is(proj):
+    import textsim
+    (proj.past_work / "ch1 draft.md").write_text("Smart homes now connect cameras, locks and sensors to the internet "
+                                                 "and each device is a possible entry point for attackers.\n")
+    (proj.past_work / "proposal.md").write_text("The aim is to design a lightweight intrusion detection system that "
+                                                "runs on resource constrained smart home devices.\n")
+    from conftest import write_chapter
+    write_chapter(proj, 1, "## A\n\nSmart homes now connect cameras, locks and sensors to the internet and each "
+                           "device is a possible entry point for attackers.\n\nThe aim is to design a lightweight "
+                           "intrusion detection system that runs on resource constrained smart home devices.\n",
+                  imported_from="docs/past_work/ch1 draft.md (CHAPTER ONE)")
+    from common import read_front_matter
+    matches, _ = textsim.scan_text(read_front_matter(proj.chapters / "chapter_one" / "chapter.md")[1])
+    assert [m.source for m in matches] == ["your earlier work: proposal.md"]

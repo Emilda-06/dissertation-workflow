@@ -404,8 +404,21 @@ def make(src: Path, quiet: bool = False) -> dict:
     cfg = load_config()
     p.cover_dir.mkdir(parents=True, exist_ok=True)
     kept = p.cover_dir / src.name
+    # one current cover: earlier ones move to docs/cover/previous/ (nothing is deleted)
+    same = src.read_bytes()
+    for old in [f for f in p.cover_dir.iterdir() if f.is_file() and f.resolve() != src.resolve()
+                and not (f.name == src.name and f.read_bytes() == same)]:
+        prev = p.cover_dir / "previous"
+        prev.mkdir(exist_ok=True)
+        target = prev / old.name
+        k = 2
+        while target.exists():
+            target = prev / f"{old.stem} ({k}){old.suffix}"
+            k += 1
+        shutil.move(str(old), str(target))
     if src.resolve() != kept.resolve():
         shutil.copy2(src, kept)
+    p.cover_template.unlink(missing_ok=True)               # rebuilt below from the new cover
     report = {"original": kept, "template": None, "kind": "image", "placed": {}, "found": {}, "missing": [],
               "prefilled": {}}
     if kept.suffix.lower() in (".png", ".jpg", ".jpeg"):
