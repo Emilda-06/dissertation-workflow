@@ -120,15 +120,15 @@ Then paste this prompt:
 > 3. Create a `tools\` folder and download the latest Windows builds of pandoc, a matching
 >    pandoc-crossref, and the Zotero Better BibTeX `.xpi` from their GitHub releases.
 > 4. Copy `.env.example` to `.env` and ask me for my email address for `CONTACT_EMAIL`.
-> 5. Ask me for a short project name and my dissertation title, run
->    `scripts/project.py new <name> --title "<title>"`, then fill `projects/<name>/project.yaml` with
->    my name, student ID, programme, department, faculty, university, supervisor and chapter plan.
+> 5. Ask me for a short project name, my dissertation title, and the paths of my cover page,
+>    department guidelines and earlier work, then run `scripts/project.py new <name> --title "<title>"
+>    --cover <file> --guidelines <file or folder> --past-work <file or folder>` and help me complete
+>    `projects/<name>/config/project.yaml` (whatever the cover did not already fill in).
 > 6. Tell me how to install Better BibTeX in Zotero, then run `scripts/doctor.py` and fix
 >    anything that isn't `OK`.
 
 Claude Code will ask for permission before installing anything. The only manual steps are
-installing the Better BibTeX plugin inside Zotero (two clicks) and, if you want one, saving your
-university's cover page as `projects\<name>\cover.docx`.
+installing the Better BibTeX plugin inside Zotero (two clicks).
 
 > A SessionStart hook starts Zotero each time Claude Code opens. Until the venv and Zotero are
 > installed it shows an error at startup. You can ignore that during setup.
@@ -154,15 +154,18 @@ Then:
 1. **`tools\`**: create the folder and put `pandoc.exe`, `pandoc-crossref.exe` and
    `zotero-better-bibtex.xpi` in it (links in the table above).
 2. **`.env`**: set `CONTACT_EMAIL` to your own email address. See the comments in `.env.example`.
-3. **`projects\my-thesis\project.yaml`**: fill in your details and chapter plan. In Zotero, create a
-   collection with the name shown by `project.py new` (each dissertation uses its own collection).
+3. **Your project, set up from your own files** (all optional, any file names; they are copied in):
+   ```bat
+   .venv\Scripts\python scripts\project.py new my-thesis --title "My title" ^
+       --cover "C:\Uni\cover page.docx" --guidelines "C:\Uni\handbook" --past-work "C:\Uni\drafts"
+   ```
+   The cover becomes a template that fills itself in (Word, PDF or image), the guidelines are mapped to
+   chapters, and finished chapters in your earlier work are imported. Then check
+   `projects\my-thesis\config\project.yaml` (details the cover did not have, chapter plan). In Zotero,
+   create a collection with the name shown (each dissertation uses its own collection).
+   Add more later with `project.py add --cover ... --guidelines ... --past-work ... --feedback ...`.
 4. **Zotero**: open Zotero, go to *Tools > Plugins*, install `tools\zotero-better-bibtex.xpi` and restart Zotero.
-5. **Optional:**
-   - `projects\my-thesis\cover.docx`: your university's cover page with `{{TITLE}}`, `{{STUDENT_NAME}}` and similar placeholders.
-   - `projects\my-thesis\guidelines\`: department guidelines or chapter templates (any file names).
-   - `projects\my-thesis\existing\`: earlier drafts, plus a `NOTES.md` saying what each file is.
-   - `projects\my-thesis\feedback\`: supervisor feedback.
-6. **Check:** `.venv\Scripts\python.exe scripts\doctor.py` (`--fix` installs the Python and Node
+5. **Check:** `.venv\Scripts\python.exe scripts\doctor.py` (`--fix` installs the Python and Node
    packages and prints exact download steps for pandoc). Every required line should show `OK`.
 
 **Coming from the single-project version?** Run `.venv\Scripts\python.exe scripts\project.py migrate <name>`.
@@ -196,8 +199,10 @@ config/
   project.example.yaml   template for every project's project.yaml
   templates/             shared defaults: Word styles, Harvard/APA/IEEE CSL, crossref, Mermaid, matplotlib
 projects/                your dissertations (git-ignored here; each has its own git repository)
-  <name>/                project.yaml, cover, guidelines/, existing/, feedback/, requirements/,
-                         templates/, output/, references/
+  <name>/
+    config/              project.yaml, style.yaml, cover_template.docx, templates/, requirements/
+    docs/                your documents as given: cover/, guidelines/, past_work/, feedback/
+    output/              chapters/, appendices/, dissertation/, references/
 scripts/                 pipeline tools (see CLAUDE.md)
 tests/                   automated tests (python -m pytest)
 .claude/                 the /dissertation skill and the SessionStart hook

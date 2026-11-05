@@ -40,9 +40,9 @@ def write_essay(proj, repeat=3):
 # ---------------------------------------------------------------- voice sample
 def test_voice_sample_requires_confirmation_and_tunes_profile(proj, projects_dir):
     write_essay(proj)
-    r = run_script("style.py", "init", "--from-sample", "existing/reflective_report.md", projects_dir=projects_dir)
+    r = run_script("style.py", "init", "--from-sample", "docs/past_work/reflective_report.md", projects_dir=projects_dir)
     assert r.returncode != 0 and "--own-work" in (r.stdout + r.stderr)
-    run_script("style.py", "init", "--from-sample", "existing/reflective_report.md", "--own-work",
+    run_script("style.py", "init", "--from-sample", "docs/past_work/reflective_report.md", "--own-work",
                projects_dir=projects_dir, check=True)
     p = style.load()
     vs = p["voice_sample"]
@@ -57,13 +57,13 @@ def test_voice_sample_requires_confirmation_and_tunes_profile(proj, projects_dir
 def test_voice_sample_too_short(proj, projects_dir):
     (proj.existing / "short.md").write_text(ESSAY_PARAS[0], encoding="utf-8")
     run_script("style.py", "init", projects_dir=projects_dir, check=True)
-    r = run_script("style.py", "voice", "existing/short.md", "--own-work", projects_dir=projects_dir)
+    r = run_script("style.py", "voice", "docs/past_work/short.md", "--own-work", projects_dir=projects_dir)
     assert r.returncode != 0 and "at least" in (r.stdout + r.stderr)
 
 
 def test_voice_rhythm_warning(proj, projects_dir):
     write_essay(proj)
-    run_script("style.py", "init", "--from-sample", "existing/reflective_report.md", "--own-work",
+    run_script("style.py", "init", "--from-sample", "docs/past_work/reflective_report.md", "--own-work",
                projects_dir=projects_dir, check=True)
     p = style.load()
     flat = "## A\n\n" + " ".join(["The system logs every request to the central server for review."] * 14) + "\n"

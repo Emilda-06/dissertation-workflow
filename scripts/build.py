@@ -322,7 +322,8 @@ def prepare_cover(cfg: dict, document_label: str, mode: str) -> tuple[str, str]:
         return "", ""
     p = project()
     p.build.mkdir(parents=True, exist_ok=True)
-    docx, pdf = p.root / "cover.docx", p.root / "cover.pdf"
+    docx = p.cover_template                                     # made from your cover by cover.py
+    originals = sorted(p.cover_dir.glob("*")) if p.cover_dir.exists() else []
     if docx.exists():
         filled = p.build / "cover_filled.docx"
         fill_placeholders(docx, filled, cover_values(cfg, document_label))
@@ -331,11 +332,15 @@ def prepare_cover(cfg: dict, document_label: str, mode: str) -> tuple[str, str]:
         png = docx_to_png(filled, p.build / "cover.png")
         if png:
             return "image", str(png)
-        print("note: without Word or LibreOffice the cover.docx cannot be placed; building without a cover page")
+        print("note: without Word or LibreOffice the cover template cannot be placed; building without a cover page")
         return "", ""
-    if pdf.exists():
+    pdf = next((f for f in originals if f.suffix.lower() == ".pdf"), None)
+    if pdf:
         return "image", str(pdf_to_png(pdf, p.build / "cover.png"))
-    print(f"note: no cover.docx or cover.pdf in {p.rel(p.root)} - building without a cover page")
+    img = next((f for f in originals if f.suffix.lower() in (".png", ".jpg", ".jpeg")), None)
+    if img:
+        return "image", str(img)
+    print("note: no cover yet (project.py add --cover <file>) - building without a cover page")
     return "", ""
 
 

@@ -31,9 +31,39 @@ something like "start", "menu", "hi" or "what can you do", silently run `PY scri
 `PY scripts/status.py` and `PY scripts/doctor.py`, then ask with the **AskUserQuestion** tool. Don't
 print the menu as plain text.
 
-If **no project exists**, first ask for a short name and the title, then run
-`PY scripts/project.py new <name> --title "<title>"` (or `project.py migrate <name>` if doctor reports
-the old single-project layout). If several exist and none is active, ask which one.
+**Question 0, which project** (header: `Project`), asked first whenever at least one project exists:
+| Option | Description |
+|---|---|
+| Continue <active project> | `<title>` - <chapters written>/<planned>, last change <date> (from project.py list) |
+| Another project | Pick from the list (ask again with up to 4 project names; "Other" to type one) |
+| Start a new project | A new dissertation, set up from your cover, guidelines and earlier work |
+| Add documents to <active project> | A new cover, guidelines, earlier chapters or supervisor feedback |
+
+If **no project exists** (or doctor reports the old single-project layout: offer
+`project.py migrate <name>` first), go straight to **Setting up a project** below.
+
+### Setting up a project (new project, or "Add documents")
+Ask in one message, plainly, for what the user has. Every item is optional and file names don't
+matter: they can paste paths, drag files into the terminal, or name a folder.
+1. a short project name and the dissertation title (new project only);
+2. the **cover page** (Word, PDF or image) - it becomes a template that fills itself in;
+3. the **department guidelines / chapter templates** (files or a folder);
+4. **earlier work**: proposal, finished chapters, a full draft (files or a folder);
+5. **supervisor feedback**, if any.
+Then run one command (quote paths with spaces):
+`PY scripts/project.py new <name> --title "<title>" --cover "<file>" --guidelines "<file|folder>" ... --past-work "<file|folder>" ... --feedback "<file>"`
+(for an existing project: `PY scripts/project.py add --project <name> --cover ... --guidelines ...`).
+It copies everything into `docs/` (originals kept as given), turns the cover into
+`config/cover_template.docx`, scans and maps the guidelines, imports finished chapters found in the
+earlier work (never overwriting a chapter already in the workflow) and commits. Then:
+- show the user the cover fields it found and the details it filled into `config/project.yaml`;
+  ask them to confirm or correct anything missing (student ID, supervisor, programme...) and edit
+  `config/project.yaml`. If it noted a value that differs from the cover, ask which is right;
+- if guidelines were added, continue with "Guidelines (templates)" in *Before any mode* (decide
+  REVIEW mappings, record and approve the requirements);
+- if chapters were imported, read each `import_report.md` and offer to fix what it lists;
+- ask for the writing style (step 3 of *Before any mode*) if the project has none;
+- finish with `PY scripts/project.py info --project <name>` and go on to Question 1.
 
 **Question 1: "What would you like to do in <project>?"** (header: `Task`)
 | Option | Description |
@@ -41,10 +71,10 @@ the old single-project layout). If several exist and none is active, ask which o
 | Write a new chapter | Research, write, add diagrams, check and build a chapter from scratch |
 | Revise a chapter | Apply changes from your supervisor or from you |
 | Build full dissertation | Combine all chapters (and appendices) into one Word document |
-| Status, setup or switch project | Progress, guidelines, setup problems, or another dissertation |
+| Status and setup | Progress, guidelines, setup problems (`project.py info`, `status.py`, `doctor.py`) |
 
 **Question 2, straight after Question 1 (only for Write or Revise): "Which chapter?"** (header: `Chapter`)
-- Build the options from the project's `project.yaml` as `"<n>. <title>"`.
+- Build the options from the project's `config/project.yaml` as `"<n>. <title>"`.
   - For *Write*, list chapters that don't have a `chapter.md` yet; for *Revise*, those that do.
   - Show at most 4. The user can pick "Other" and type a number.
 
@@ -101,16 +131,16 @@ research works without an email; builds work without a cover, without Word (Libr
    the brief (`style.py show`) once; every chapter of this project then follows it, so the dissertation
    reads as one consistent voice. Never change another project's style.
    **The author's own voice.** Also ask whether they have earlier writing they did themselves, **without
-   AI tools** (an essay, a report, coursework, a reflective log; 2,000+ words is best). If `existing/` has
+   AI tools** (an essay, a report, coursework, a reflective log; 2,000+ words is best). If `docs/past_work/` has
    such files, name them. With the user's confirmation that it is their own work, run
-   `PY scripts/style.py init --preset <p> --from-sample existing/<file> --own-work` (or
+   `PY scripts/style.py init --preset <p> --from-sample docs/past_work/<file> --own-work` (or
    `style.py voice <file> --own-work` for an existing profile). It measures their rhythm, connectives,
    openings, hedging and typical phrasing and tunes the profile to it, and the brief then tells the
    writer to match it. It only measures; nothing from the sample is copied. Never pass `--own-work`
    without asking, and never use AI-assisted text as a sample.
 4. `PY scripts/context.py <n>`: the project details, the research problem/aim/objectives/questions,
    the chapter plan, the merged outline skeleton and the guideline text for this chapter, the other
-   chapters' headings and labels, and the earlier work and feedback files. Read files in `existing/`
+   chapters' headings and labels, and the earlier work and feedback files. Read files in `docs/past_work/`
    it lists when relevant; use them for consistency, never copy from them.
 
 Record each finished stage with `PY scripts/state.py done <n> <stage> "<short note>"`.
@@ -244,7 +274,7 @@ The feedback may be typed, pasted, a file in the project's `feedback/`, or a pat
 (.docx via pandoc, .pdf with Read). For a document covering several chapters, take only this
 chapter's comments and mention the others.
 
-If `chapter.md` does not exist but the chapter is in `existing/`, import it first:
+If `chapter.md` does not exist but the chapter is in `docs/past_work/`, import it first:
 `PY scripts/import_docx.py "<file>" <n>`, then fix what `import_report.md` lists.
 
 ### Stage 1: plan

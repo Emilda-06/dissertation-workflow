@@ -110,8 +110,8 @@ def test_style_profiles_differ_per_project_and_are_enforced(proj, projects_dir):
     run_script("style.py", "init", "--project", "alpha", projects_dir=projects_dir, check=True)
     run_script("style.py", "init", "--preset", "concise-technical", "--spelling", "american", "--project", "beta",
                projects_dir=projects_dir, check=True)
-    a = yaml.safe_load((proj.root / "style.yaml").read_text())
-    b = yaml.safe_load((projects_dir / "beta" / "style.yaml").read_text())
+    a = yaml.safe_load(proj.style_file.read_text())
+    b = yaml.safe_load((projects_dir / "beta" / "config" / "style.yaml").read_text())
     assert a["spelling"] == "british" and b["spelling"] == "american"
     assert a["sentence_length"] != b["sentence_length"]
     body = ("## Intro\n\nWe analyze the systems and it is important to note that they don't agree. "

@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------------
 # Dissertation settings - the template for every project.
 # Create a project with:  python scripts/project.py new <name> --title "..."
-# which copies this file to projects/<name>/project.yaml (your copy is never committed here).
+# which copies this file to projects/<name>/config/project.yaml (never committed here). Values found on
+# your cover page (project.py new ... --cover F) are filled in automatically.
 # ---------------------------------------------------------------------------
 project:
   title: "Your Dissertation Title"
@@ -15,15 +16,15 @@ project:
   document_type: "Dissertation"
   domain: "your research area, e.g. machine learning, distributed systems"
   # Source of truth for the research problem, aim, objectives and research questions, read by
-  # context.py. A path inside the project (e.g. existing/proposal.docx) or a chapter file.
-  # Empty = chapter 1 once it exists, otherwise a file named *proposal* in existing/.
+  # context.py. A path inside the project (e.g. docs/past_work/proposal.docx) or a chapter file.
+  # Empty = chapter 1 once it exists, otherwise a file named *proposal* in docs/past_work/.
   current_topic_source: "output/chapters/chapter_one/chapter.md"
   # Every value above can be used on the cover as {{UPPER_CASE_NAME}}, e.g. {{STUDENT_NAME}}.
   # Also available: {{DATE}} {{YEAR}} {{DOCUMENT}}.
 
 # Chapter plan. 'type' tells the writer what kind of chapter it is
 # (introduction | literature | methodology | design | results | conclusion).
-# Guidelines do NOT need to be named here: put them in guidelines/ and run guidelines.py scan.
+# Guidelines do NOT need to be named here: add them with project.py add --guidelines <files>.
 # 'min_references' and 'words' are optional; requirements/spec.yaml (from your guidelines) wins.
 chapters:
   1: {title: "Introduction", type: introduction, min_references: 20}
@@ -59,8 +60,8 @@ format:
   heading_sizes: {1: 12, 2: 12, 3: 12, 4: 12}
   margins_cm: {top: 2.54, bottom: 2.54, left: 2.54, right: 2.54}
   paper: A4                         # A4 | Letter
-  cover: true                       # put cover.docx (or cover.pdf) from the project folder in front of every build
+  cover: true                       # put the cover (config/cover_template.docx) in front of every build
   finalizer: auto                   # auto | word | libreoffice | none (auto = Word if installed)
   pdfa: false                       # PDF/A for submission portals (with --pdf)
-  # template: guidelines/University_Template.docx   # university Word template: its styles are used as-is
+  # template: docs/guidelines/University_Template.docx   # university Word template: its styles are used as-is
   # override_template: false                       # true = apply the settings above on top of it

@@ -92,7 +92,7 @@ PASSIVE = re.compile(r"\b(?:is|are|was|were|be|been|being)\s+(?:\w+ly\s+)?\w+(?:
 
 
 def path():
-    return project().root / "style.yaml"
+    return project().style_file
 
 
 def load() -> dict | None:

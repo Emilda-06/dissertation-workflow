@@ -8,7 +8,7 @@ terminology, stock academic phrases) are discounted so they do not count as matc
 Sources compared with a chapter:
   * full texts downloaded for any chapter of the project   (research/fulltext/*.txt)
   * abstracts of the search candidates                      (research/candidates.json)
-  * the author's own earlier work                           (existing/*, self-plagiarism)
+  * the author's own earlier work                           (docs/past_work/*, self-plagiarism)
 """
 from __future__ import annotations
 

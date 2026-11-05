@@ -69,30 +69,50 @@ def die(msg: str, code: int = 1) -> None:
 # ---------------------------------------------------------------- projects
 
 class Project:
-    """All paths that belong to one dissertation."""
+    """All paths that belong to one dissertation.
+
+    projects/<name>/
+      config/   settings and everything generated from your documents
+                (project.yaml, style.yaml, cover_template.docx, templates/, requirements/)
+      docs/     what you hand in, kept exactly as given (cover/, guidelines/, past_work/, feedback/)
+      output/   everything the workflow writes (chapters/, appendices/, dissertation/, references/)
+    """
 
     def __init__(self, root: Path):
         self.root = Path(root)
         self.slug = self.root.name
-        self.config_file = self.root / "project.yaml"
-        self.guidelines = self.root / "guidelines"
-        self.existing = self.root / "existing"
-        self.feedback = self.root / "feedback"
-        self.templates = self.root / "templates"
+        # config/
+        self.config_dir = self.root / "config"
+        self.config_file = self.config_dir / "project.yaml"
+        self.style_file = self.config_dir / "style.yaml"
+        self.cover_template = self.config_dir / "cover_template.docx"   # made from your cover
+        self.templates = self.config_dir / "templates"
+        self.requirements = self.config_dir / "requirements"      # generated from docs/guidelines/
+        self.manifest = self.requirements / "manifest.json"       # which guideline part belongs to which chapter
+        self.mapping = self.requirements / "mapping.yaml"         # your manual corrections (kept across scans)
+        self.spec = self.requirements / "spec.yaml"               # structured, sourced requirements
+        # docs/ (inputs, as given)
+        self.docs = self.root / "docs"
+        self.cover_dir = self.docs / "cover"
+        self.guidelines = self.docs / "guidelines"
+        self.existing = self.docs / "past_work"                   # earlier proposal, drafts, chapters
+        self.past_work = self.existing
+        self.feedback = self.docs / "feedback"
+        # output/
         self.output = self.root / "output"
         self.chapters = self.output / "chapters"
         self.appendices = self.output / "appendices"
         self.dissertation = self.output / "dissertation"
-        self.refs_dir = self.root / "references"
+        self.refs_dir = self.output / "references"
         self.library = self.refs_dir / "references.json"          # verified sources (CSL JSON)
         self.zotero_export = self.refs_dir / "zotero.json"        # copy of this project's Zotero collection
         self.verification = self.refs_dir / "verification.json"
         self.zotero_sync = self.refs_dir / "zotero_sync.json"
         self.build = self.root / ".build"
-        self.requirements = self.root / "requirements"            # generated from guidelines/
-        self.manifest = self.requirements / "manifest.json"       # which guideline part belongs to which chapter
-        self.mapping = self.requirements / "mapping.yaml"         # your manual corrections (kept across scans)
-        self.spec = self.requirements / "spec.yaml"               # structured, sourced requirements
+
+    def needs_upgrade(self) -> bool:
+        """True for a project in the earlier flat layout (project.yaml at the project root)."""
+        return (self.root / "project.yaml").exists() and not self.config_file.exists()
 
     def __repr__(self) -> str:
         return f"Project({self.slug!r})"
@@ -116,7 +136,59 @@ def list_projects() -> list[str]:
     if not PROJECTS.exists():
         return []
     return sorted(d.name for d in PROJECTS.iterdir()
-                  if d.is_dir() and not d.name.startswith(".") and (d / "project.yaml").exists())
+                  if d.is_dir() and not d.name.startswith(".")
+                  and ((d / "config" / "project.yaml").exists() or (d / "project.yaml").exists()))
+
+
+# earlier flat layout -> config/ docs/ output/   (old path, new path), relative to the project root
+LAYOUT_MOVES = [
+    ("project.yaml", "config/project.yaml"),
+    ("style.yaml", "config/style.yaml"),
+    ("templates", "config/templates"),
+    ("requirements", "config/requirements"),
+    ("cover.docx", "docs/cover/cover.docx"),
+    ("cover.pdf", "docs/cover/cover.pdf"),
+    ("guidelines", "docs/guidelines"),
+    ("existing", "docs/past_work"),
+    ("feedback", "docs/feedback"),
+    ("references", "output/references"),
+]
+PATH_REWRITES = [("existing/", "docs/past_work/"), ("guidelines/", "docs/guidelines/")]
+
+
+def upgrade_layout(p: Project) -> list[str]:
+    """Move a project from the earlier flat layout into config/ docs/ output/ (idempotent)."""
+    moved = []
+    for old, new in LAYOUT_MOVES:
+        src, dst = p.root / old, p.root / new
+        if not src.exists() or dst.exists():
+            continue
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(src), str(dst))
+        moved.append(f"{old} -> {new}")
+    # the old cover.docx already carried {{PLACEHOLDERS}}: it is the template too
+    old_cover = p.cover_dir / "cover.docx"
+    if old_cover.exists() and not p.cover_template.exists():
+        shutil.copy2(old_cover, p.cover_template)
+    # paths written inside the settings
+    for f in (p.config_file, p.style_file):
+        if f.exists():
+            text = f.read_text(encoding="utf-8")
+            new = text
+            for a, b in PATH_REWRITES:
+                new = re.sub(rf"(?<![\w/]){re.escape(a)}", b, new)
+            if new != text:
+                f.write_text(new, encoding="utf-8")
+    gi = p.root / ".gitignore"
+    if gi.exists():
+        gi.write_text(gi.read_text(encoding="utf-8").replace("\nreferences/zotero.json", "\noutput/references/zotero.json"),
+                      encoding="utf-8")
+    if moved and (p.root / ".git").exists():
+        import subprocess
+        subprocess.run(["git", "-C", str(p.root), "add", "-A"], capture_output=True)
+        subprocess.run(["git", "-C", str(p.root), "commit", "-q", "-m",
+                        "layout upgraded: config/ docs/ output/"], capture_output=True)
+    return moved
 
 
 def select_project(slug: str | None) -> None:
@@ -148,7 +220,9 @@ _announced: str | None = None
 
 def project_title(slug: str) -> str:
     try:
-        cfg = yaml.safe_load((PROJECTS / slug / "project.yaml").read_text(encoding="utf-8")) or {}
+        f = PROJECTS / slug / "config" / "project.yaml"
+        f = f if f.exists() else PROJECTS / slug / "project.yaml"          # earlier layout
+        cfg = yaml.safe_load(f.read_text(encoding="utf-8")) or {}
         return str((cfg.get("project") or {}).get("title", ""))
     except (OSError, yaml.YAMLError):
         return ""
@@ -191,6 +265,10 @@ def project(required: bool = True) -> Project | None:
         die(f"several projects exist ({', '.join(found)}); choose one with: python scripts/project.py use <name>"
             " (or pass --project <name>)")
     p = Project(PROJECTS / slug)
+    if p.needs_upgrade():
+        moved = upgrade_layout(p)
+        print(f"note: project '{slug}' moved to the config/ docs/ output/ layout ({len(moved)} item(s))",
+              file=sys.stderr)
     if not p.config_file.exists():
         if not required:
             return None

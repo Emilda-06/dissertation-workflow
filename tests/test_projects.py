@@ -78,9 +78,9 @@ def test_project_cli_new_list_use_commit(projects_dir):
     assert "* thesis-b" in out and "thesis-a" in out
     run_script("project.py", "use", "thesis-a", projects_dir=projects_dir, check=True)
     assert run_script("project.py", "current", projects_dir=projects_dir).stdout.strip() == "thesis-a"
-    cfg = yaml.safe_load((projects_dir / "thesis-a" / "project.yaml").read_text())
+    cfg = yaml.safe_load((projects_dir / "thesis-a" / "config" / "project.yaml").read_text())
     assert cfg["project"]["title"] == "First" and cfg["zotero"]["collection"] == "thesis-a"
-    (projects_dir / "thesis-a" / "existing" / "proposal.md").write_text("# Proposal")
+    (projects_dir / "thesis-a" / "docs" / "past_work" / "proposal.md").write_text("# Proposal")
     r = run_script("project.py", "commit", "add proposal", projects_dir=projects_dir, check=True)
     log = subprocess.run(["git", "-C", str(projects_dir / "thesis-a"), "log", "--format=%s"],
                          capture_output=True, text=True).stdout
@@ -90,12 +90,16 @@ def test_project_cli_new_list_use_commit(projects_dir):
 
 
 def test_new_project_from_existing_copies_department_material(projects_dir):
-    run_script("project.py", "new", "first", projects_dir=projects_dir, check=True)
-    (projects_dir / "first" / "guidelines" / "handbook.md").write_text("# Chapter 1 Introduction\nText")
-    (projects_dir / "first" / "cover.docx").write_bytes(b"fake")
+    run_script("project.py", "new", "first", "--title", "First thesis", projects_dir=projects_dir, check=True)
+    first = projects_dir / "first"
+    (first / "docs" / "guidelines" / "handbook.md").write_text("# Chapter 1 Introduction\nText")
+    (first / "config" / "cover_template.docx").write_bytes(b"fake")
     run_script("project.py", "new", "second", "--from", "first", projects_dir=projects_dir, check=True)
-    assert (projects_dir / "second" / "guidelines" / "handbook.md").exists()
-    assert (projects_dir / "second" / "cover.docx").exists()
+    second = projects_dir / "second"
+    assert (second / "docs" / "guidelines" / "handbook.md").exists()
+    assert (second / "config" / "cover_template.docx").exists()
+    cfg = yaml.safe_load((second / "config" / "project.yaml").read_text())
+    assert cfg["project"]["title"] != "First thesis"          # personal details are not copied
 
 
 def test_migrate_legacy_layout(tmp_path, monkeypatch, projects_dir):
