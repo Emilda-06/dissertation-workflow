@@ -197,6 +197,10 @@ def dissertation_front_pages() -> list[str]:
     pages = []
     for f in sorted((project().dissertation / "front_matter").glob("*.md")):
         meta, body = read_front_matter(f)
+        if meta.get("reviewed") is False:
+            print(f"note: {project().rel(f)} is a draft the author has not reviewed yet ('reviewed: false'); "
+                  "it is left out until they check it and set 'reviewed: true'")
+            continue
         title = (meta.get("title") or f.stem.split("-", 1)[-1].replace("_", " ")).upper()
         pages.append(f"# {title} {{.unnumbered}}\n\n{body.strip()}\n")
     return pages

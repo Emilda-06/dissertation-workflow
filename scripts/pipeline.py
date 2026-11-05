@@ -3,7 +3,8 @@
 Usage:
   pipeline.py begin <n> <new|edit> "<request>"   Zotero check, git snapshot, start or resume the run
   pipeline.py finish <n> [--pdf] [--pdfa] [--force] [--no-commit]
-        diagrams -> quality check -> source verification -> build -> compliance report -> state -> git snapshot
+        diagrams -> quality check -> source verification -> build -> compliance report -> provenance -> state
+        -> git snapshot (begin also records the author's hand edits since the last run, see provenance.py)
 
 Exit code 2 = a step failed (the output says which and what to fix); nothing after it was run.
 """
@@ -46,8 +47,10 @@ def cmd_begin(a, cfg):
         print(f"chapter {a.n} has a run IN PROGRESS (mode={s['mode']}); resuming it, not starting again.")
         run("state.py", "show", str(a.n))
         return
+    run("provenance.py", "scan", str(a.n), show=False)       # hand edits since the last assistant draft
     run("project.py", "commit", f"before: {a.mode} chapter {a.n}")
     run("state.py", "start", str(a.n), a.mode, a.request)
+    run("provenance.py", "record-begin", str(a.n), a.mode, a.request, show=False)
 
 
 def step(title: str, r: subprocess.CompletedProcess, n: int, stage: str | None, ok_codes=(0,)) -> None:
@@ -87,6 +90,8 @@ def cmd_finish(a, cfg):
         run("build.py", "changes", str(n))
         run("build.py", "redline", str(n))
     done(n, "report", built)
+    run("provenance.py", "record-finish", str(n), "--build", Path(built).name if built else "", show=False)
+    run("provenance.py", "log", show=False)
     run("state.py", "finish", str(n), show=False)
     if not a.no_commit:
         run("project.py", "commit", f"chapter {n}: built {Path(built).name if built else ''}".strip())

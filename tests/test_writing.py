@@ -88,14 +88,20 @@ def test_similarity_report(proj, projects_dir):
 def test_author_input_cycle(proj, projects_dir):
     write_chapter(proj, 2, "## Intro\n\nText.\n")
     run_script("author_input.py", "init", "2", projects_dir=projects_dir, check=True)
-    assert author_input.status(2) == (0, 5)
+    assert author_input.status(2) == (0, 9)
     assert run_script("author_input.py", "status", "2", projects_dir=projects_dir).returncode == 2
     p = author_input.path(2)
     p.write_text(p.read_text(encoding="utf-8").replace("(your answer)", "My view.", 1), encoding="utf-8")
-    assert author_input.status(2) == (1, 5)
+    assert author_input.status(2) == (1, 9)
     import check
     res = check.check_chapter(2, load_config(), run_integrity=False)
-    assert not any("author input" in w for w in res["warnings"])
+    assert any("only 1/9" in w for w in res["warnings"]) and any("very short" in w for w in res["warnings"])
+    text = p.read_text(encoding="utf-8")
+    for _ in range(3):
+        text = text.replace("(your answer)", "Text matters here because the chapter text is what readers see first.", 1)
+    p.write_text(text, encoding="utf-8")
+    res = check.check_chapter(2, load_config(), run_integrity=False)
+    assert not any("only " in w and "answered" in w for w in res["warnings"])
 
 
 def test_style_profiles_differ_per_project_and_are_enforced(proj, projects_dir):
