@@ -226,6 +226,10 @@ def generate(cfg: dict, out: Path) -> Path:
     if (s := styled("Compact")) is not None:
         set_font(s, font, size)
         para(s, L, 1.0 if line <= 1.15 else 1.15, 0, 3)
+    # code blocks / pseudocode: never justified (Normal is), single spaced, keep the monospace font
+    if (s := styled("Source Code")) is not None:
+        para(s, L, 1.0, 0, 8)
+        s.paragraph_format.keep_together = True
     if (s := styled("Block Text")) is not None:
         set_font(s, font, size, italic=False)
         para(s, J, 1.0, 6, 6)

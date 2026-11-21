@@ -236,6 +236,52 @@ def rebuild_flowing(src_doc, cfg: dict):
     return doc
 
 
+def _starts_page(el) -> bool:
+    """A paragraph that begins a new page: page-break-before, or a page break before any of its text."""
+    ppr = el.find(qn("w:pPr"))
+    if ppr is not None and ppr.find(qn("w:pageBreakBefore")) is not None:
+        v = ppr.find(qn("w:pageBreakBefore")).get(qn("w:val"), "true")
+        if v not in ("0", "false"):
+            return True
+    for node in el.iter(qn("w:br"), qn("w:t")):
+        if node.tag == qn("w:t") and (node.text or "").strip():
+            return False
+        if node.tag == qn("w:br") and node.get(qn("w:type")) == "page":
+            return True
+    return False
+
+
+def _ends_page(el) -> bool:
+    """A paragraph after which a new page begins: a section break, or a page break after its text."""
+    ppr = el.find(qn("w:pPr"))
+    if ppr is not None and ppr.find(qn("w:sectPr")) is not None:
+        return True
+    return any(br.get(qn("w:type")) == "page" for br in el.iter(qn("w:br")))
+
+
+def keep_first_page(doc) -> int:
+    """Keep only the first page of the document (the cover) - a whole thesis can be given as the cover.
+    Returns how many body elements were removed."""
+    body = doc.element.body
+    kids = [k for k in body if k.tag != qn("w:sectPr")]
+    seen = False
+    cut = None
+    for i, el in enumerate(kids):
+        has_content = bool("".join(el.itertext()).strip()) or el.find(".//" + qn("w:drawing")) is not None
+        if el.tag == qn("w:p") and seen and _starts_page(el):
+            cut = i
+            break
+        seen = seen or has_content
+        if el.tag == qn("w:p") and seen and _ends_page(el):
+            cut = i + 1
+            break
+    if cut is None:
+        return 0
+    for el in kids[cut:]:
+        body.remove(el)
+    return len(kids) - cut
+
+
 def tidy_converted(doc) -> int:
     """Clean a cover converted from PDF: drop the duplicate compatibility copy of every text box, and rejoin
     lines that the PDF had wrapped (same font size, previous line not ending a sentence). Returns joins made."""
@@ -353,6 +399,14 @@ def templatize(doc, cfg: dict) -> dict:
                 found.setdefault("PROGRAMME", m.group(1).strip())
                 put("PROGRAMME", p_el, m.start(1), m.start(1) + len(m.group(1).rstrip(". ")), m.group(1).strip())
                 break
+    if "DOCUMENT" not in placed:                       # "CHAPTERS ONE - SIX", "Chapter 1", "Chapters 1-3"
+        for p_el in free:
+            text = para_text(p_el)
+            if re.match(r"^\s*chapters?\s+[\w]+(\s*(?:-|–|—|to|and|&)\s*[\w]+)?\s*$", text, re.I):
+                lead = len(text) - len(text.lstrip())
+                put("DOCUMENT", p_el, lead, lead + len(text.strip()), text.strip())
+                free.remove(p_el)
+                break
     if "DATE" not in placed:
         for p_el in free:
             text = para_text(p_el)
@@ -441,6 +495,7 @@ def make(src: Path, quiet: bool = False) -> dict:
         report["note"] = (f"rebuilt from the PDF as a centred page in your document font - open "
                           f"{p.rel(p.cover_template)} in Word to adjust spacing or add a logo; "
                           "a .docx cover keeps the original design exactly")
+    report["trimmed"] = keep_first_page(doc)
     rep = templatize(doc, cfg)
     p.config_dir.mkdir(parents=True, exist_ok=True)
     doc.save(str(p.cover_template))
@@ -460,6 +515,8 @@ def print_report(r: dict) -> None:
         print(f"cover: {r.get('note', '')}")
         return
     print(f"cover template: {p.rel(r['template'])}")
+    if r.get("trimmed"):
+        print(f"  kept only the first page of the document (the cover); {r['trimmed']} later block(s) left out")
     for field, orig in r["placed"].items():
         print(f"  {{{{{field}}}}}  <- {orig!r}" if orig else f"  {{{{{field}}}}}  (blank field)")
     if r.get("note"):

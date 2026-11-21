@@ -249,3 +249,27 @@ def test_imported_draft_is_not_self_plagiarism_but_a_proposal_is(proj):
     from common import read_front_matter
     matches, _ = textsim.scan_text(read_front_matter(proj.chapters / "chapter_one" / "chapter.md")[1])
     assert [m.source for m in matches] == ["your earlier work: proposal.md"]
+
+
+def test_whole_document_as_cover_keeps_only_first_page(proj, tmp_path):
+    """A finished thesis given as the cover: only page 1 becomes the template, and the
+    title / chapter line on the cover are found (not headings or references later on)."""
+    from docx.enum.text import WD_BREAK
+    d = Document()
+    for text, size in [("FACULTY OF COMPUTING", 14), ("NAME OF STUDENT: TENDAI MOYO", 12),
+                       ("REG NO: R191234X", 12), ("SUPERVISOR: DR P. CHIKWANHA", 12), ("CHAPTERS ONE - SIX", 12),
+                       ("2026", 12), ("A LIGHTWEIGHT INTRUSION DETECTION SYSTEM FOR SMART HOMES", 16)]:
+        d.add_paragraph().add_run(text).font.size = Pt(size)
+    p = d.add_paragraph()
+    p.add_run().add_break(WD_BREAK.PAGE)
+    p.add_run("Abstract")
+    d.add_paragraph().add_run("Chapter 4: System Implementation").font.size = Pt(28)
+    d.add_paragraph("Smith, J. (2020) Bandits. Cambridge: Cambridge University Press.")
+    path = tmp_path / "thesis.docx"
+    d.save(str(path))
+    r = cover.make(path, quiet=True)
+    t = texts(proj.cover_template)
+    assert r["trimmed"] >= 3
+    assert not any("Abstract" in x or "Chapter 4" in x or "Cambridge" in x for x in t)
+    assert "{{TITLE}}" in t and "{{DOCUMENT}}" in t
+    assert r["found"]["TITLE"].startswith("A LIGHTWEIGHT")
