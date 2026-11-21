@@ -8,7 +8,7 @@ sources it comes from, and every flagged sentence next to the source sentence it
 Writes output/chapters/chapter_<n>/similarity_report.md (and similarity_report.html with --html).
 
 The estimate covers the sources this project knows (downloaded full texts, search abstracts, your files
-in existing/). Turnitin compares with far more, so treat it as a lower bound and fix every flag.
+in docs/past_work/). Turnitin compares with far more, so treat it as a lower bound and fix every flag.
 """
 from __future__ import annotations
 

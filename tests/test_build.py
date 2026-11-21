@@ -100,7 +100,7 @@ def test_university_format_template_styles_are_kept(proj):
     d.add_paragraph("x")
     d.save(str(proj.guidelines / "uni.docx"))
     cfg = load_config()
-    cfg["format"]["template"] = "guidelines/uni.docx"
+    cfg["format"]["template"] = "docs/guidelines/uni.docx"
     out = make_template.ensure_reference(cfg, force=True)
     doc = Document(str(out))
     assert doc.styles["Normal"].font.name == "Garamond"                 # university style respected
@@ -133,8 +133,8 @@ def test_end_to_end_build_without_word(proj, projects_dir):
             "## Findings\n\nAs @tbl:t shows, the values differ between runs in a way worth noting.\n\n"
             "| A | B |\n|---|---|\n| 1 | 2 |\n\n: Values per run in the study. {#tbl:t}\n")
     write_chapter(proj, 1, body)
-    (proj.root / "project.yaml").write_text(
-        (proj.root / "project.yaml").read_text().replace("finalizer: none", "finalizer: none"))
+    proj.config_file.write_text(
+        proj.config_file.read_text().replace("finalizer: none", "finalizer: none"))
     r = run_script("build.py", "chapter", "1", "--force", "--no-zotero", projects_dir=projects_dir, check=True)
     assert "BUILT" in r.stdout
     out = proj.chapters / "chapter_one" / "docs" / "chapter_one_v1.docx"

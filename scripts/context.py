@@ -88,7 +88,7 @@ def main():
         print(f"(from {p.rel(src)})\n")
         print(topic_sections(read_any(src)) or "(no matching headings found - read the source in full)")
     else:
-        print("(no topic source yet: set project.current_topic_source, or add a proposal to existing/)")
+        print("(no topic source yet: set project.current_topic_source, or add a proposal with project.py add --past-work <file>)")
 
     print("\n## Writing style (keep it for every chapter of this project)")
     prof = style.load()

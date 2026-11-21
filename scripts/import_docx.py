@@ -271,6 +271,7 @@ def main():
     p.add_argument("chapter", type=int)
     p.add_argument("--title")
     p.add_argument("--overwrite", action="store_true")
+    p.add_argument("--source-label", help="what to record as the origin (default: the file name)")
     args = p.parse_args()
     cfg = load_config()
     n = args.chapter
@@ -313,7 +314,7 @@ def main():
     title = args.title or detected_title or chapter_title(cfg, n)
     title = re.sub(r"^chapter\s+\w+\s*[:.\-]?\s*", "", title, flags=re.I).strip().title()
     meta = {"chapter": n, "title": title, "type": (cfg.get("chapters", {}).get(n) or {}).get("type", ""),
-            "status": "imported", "imported_from": src.name}
+            "status": "imported", "imported_from": args.source_label or src.name}
     write_front_matter(chapter_file(n), meta, body)
 
     rep = [f"# Import report - Chapter {NUMBER_WORDS[n].title()}", "",

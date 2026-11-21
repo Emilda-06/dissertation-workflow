@@ -145,8 +145,11 @@ def main():
             "python scripts/project.py new <name> --title \"...\"  (or: project.py use <name>)")
     else:
         add("active project", True, p.slug)
-        cover = next((c for c in (p.root / "cover.docx", p.root / "cover.pdf") if c.exists()), None)
-        add("cover page", bool(cover), cover.name if cover else "missing", f"put your cover at {p.rel(p.root)}/cover.docx")
+        originals = sorted(f for f in p.cover_dir.glob("*") if f.is_file()) if p.cover_dir.exists() else []
+        add("cover page", p.cover_template.exists() or bool(originals),
+            "template " + p.cover_template.name if p.cover_template.exists() else
+            (originals[0].name + " (as a picture)" if originals else "missing"),
+            "project.py add --cover <your cover .docx/.pdf>")
         z = cfg.get("zotero") or {}
         if z.get("enabled", True):
             add("Zotero collection", bool(z.get("collection")), z.get("collection") or "not set (whole library used)",

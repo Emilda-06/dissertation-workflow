@@ -20,6 +20,7 @@ import author_input
 import critique
 import guidelines
 import integrity
+import naturalness
 import style
 from chapterdoc import FIG_DEF, REF_USE, SEC_DEF, TBL_DEF, blocks, classify, word_count
 from common import (appendix_file, chapter_dir, chapter_file, existing_appendices, existing_chapters,
@@ -146,7 +147,8 @@ def variety_checks(body: str, meta: dict, keys: list, uniq: list, ver: dict, cfg
         "since": min_year, "longest_paragraph_run": longest, "uncited_long_paragraphs": len(uncited),
     }
     if longest > 6:
-        warnings.append(f"{longest} plain paragraphs in a row; break them up with a table, figure or list")
+        warnings.append(f"{longest} plain paragraphs in a row; if part of it compares items, lists steps or describes a "
+                        "structure, show that as a table, list or figure (do not add one just to break the text)")
     if words > 1500 and stats["figures"] + stats["tables"] < 2:
         warnings.append("fewer than 2 figures/tables for a chapter of this length")
     if long_paras:
@@ -187,12 +189,10 @@ def check_chapter(n: int, cfg: dict, run_integrity: bool = True) -> dict:
     stats["descriptive_share"] = depth["descriptive_share"]
     stats["synthesis_share"] = depth["synthesis_share"]
     warnings += style.check_chapter(n)
-    answered, total = author_input.status(n)
-    if not total:
-        warnings.append(f"no author input recorded for this chapter (author_input.py init {n}): build the chapter "
-                        "on the author's own views, findings and context")
-    elif not answered:
-        warnings.append(f"author input questions are unanswered (author_input.py show {n})")
+    w, nat = naturalness.warnings_for(body, style.load())
+    warnings += w
+    stats["sentence_variation"] = nat.get("cv")
+    warnings += author_input.chapter_warnings(n, body)
     return {"chapter": n, "errors": errors, "warnings": warnings, "stats": stats}
 
 

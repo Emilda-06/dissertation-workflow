@@ -19,16 +19,56 @@
   the complexities", "furthermore/moreover" to open every paragraph, "in conclusion" mid-chapter,
   rhetorical questions, three-adjective lists, or em-dash heavy sentences. Vary how sentences and
   paragraphs start.
+
+## Natural prose (what makes text read as written by a person)
+
+Flat, predictable text reads as machine-written whoever wrote it. The cure is better writing, never
+word-swapping or added randomness. `naturalness.py <n>` measures all of this and lists every sentence to
+revise; `check.py` reports it as `voice:` warnings.
+
+- **Rhythm.** Vary sentence length on purpose. After a long sentence that connects several ideas, a short
+  one lands the point. Never four sentences of the same length in a row. Some sentences should be well
+  under the style's average and some well over it.
+- **Openings.** Start sentences in different ways: the subject, the evidence, a number, a condition, a
+  time. Do not open sentences with a connective by habit: most sentences need none, because the logic
+  carries them. Never start three sentences in a row with the same word.
+- **Connectives are a budget, not a palette.** Use any one ("however", "therefore", "moreover") no more
+  than about 2-3 times per 1,000 words. "But" and "so" are fine in plain styles.
+- **Be specific.** Every paragraph is anchored in something concrete: a number, a named system, version
+  or dataset, a source, or the author's own example. A paragraph that could appear in any dissertation on
+  the topic needs rewriting.
+- **Structural tells to avoid** (beyond the banned phrases):
+  - "not only X but also Y", "not just X but Y", "it is not merely": state the point directly;
+  - reflexive lists of three ("efficient, scalable and secure"): use two when two is true;
+  - a trailing significance clause (", highlighting the need for ...", ", underscoring ..."): make the
+    significance its own claim, with evidence, or cut it;
+  - a summing-up last sentence on every paragraph ("Overall, ...", "This highlights ..."): end on the point;
+  - stacked hedges ("may potentially", "could possibly"): hedge once, where the evidence is uncertain;
+  - inflated importance ("plays a crucial role", "pivotal", "in today's landscape"): say what it does;
+  - signposting in the body ("This section discusses ..."): keep it for the chapter introduction;
+  - bold text inside paragraphs, and dashes as punctuation.
+- **The author's voice.** Use the author's own examples, judgements and ways of explaining from
+  `author_input.md`, close to how they put them (in the project's person and register). `check.py` warns
+  when an answered question is not visibly used.
 - British spelling (organisation, analyse, behaviour), unless project.yaml says otherwise.
 
-## Paragraph structure (claim → evidence → analysis → link)
+## Paragraph structure (a toolkit, not a mould)
 
-1. **Claim:** the paragraph's point, in your own words.
-2. **Evidence:** what the sources show, often more than one source. Compare them, don't just
+Each paragraph makes one point and, taken together, a section needs these four moves:
+
+1. **Claim:** the point, in your own words.
+2. **Evidence:** what the sources or data show, often more than one source. Compare them, don't just
    list them.
-3. **Analysis:** what this means for this study. Note agreements, contradictions, limitations
-   and gaps.
-4. **Link:** connect to the next point or to the research objectives.
+3. **Analysis:** what this means for this study: agreements, contradictions, limitations and gaps.
+4. **Link:** how it connects to the next point or to the research objectives.
+
+Not every paragraph needs all four, and they need not come in that order. Applying the same four-step
+shape to every paragraph is what makes a chapter feel templated. Open some paragraphs with the
+evidence, a striking number, a contradiction between two studies or the author's own example, and draw
+the claim from it. Let a short paragraph make a single sharp point. Put the link where it is needed
+(often at the start of the next paragraph), not as a closing sentence on every paragraph. The
+evaluation must be real: a comparison, a judgement of a method or limit, or a consequence for this study.
+Adding "however" or "therefore" is not evaluation (`critique.py` no longer counts connectives).
 
 In a literature review, organise by **theme**, not one source per paragraph. A good synthesis
 sentence brings sources together: "Although @a and @b both report latency below 20 ms, @c
@@ -49,13 +89,18 @@ A chapter must not be paragraph after paragraph. Use whatever fits the content:
 | Argument, interpretation, critique | **Paragraphs** |
 
 Rules:
-- No more than about 5 paragraphs in a row without a table, figure or list. check.py warns at 7.
-- Every figure and table is **introduced in the text before it appears** ("@fig:zta-arch shows...")
-  and **discussed after it**. Never drop one in without comment.
-- Lists are introduced by a full sentence ending in a colon, and followed by a paragraph
-  of analysis.
-- A typical 5,000-word chapter has 3–6 figures, 2–5 tables and 2–5 lists. The literature review
-  should include at least one summary table of related studies.
+- Use an element because the content has that shape (a comparison, a sequence, a structure), never to
+  meet a quota. A long run of paragraphs is fine when it is one developing argument; check.py warns at 7
+  so you can check whether part of it is really a comparison or a list in disguise.
+- Every figure and table is **introduced in the text before it appears** and **discussed after it**.
+  Never drop one in without comment. Vary how you introduce them, and lead with what the reader should
+  notice ("Latency doubles above 50 clients (@fig:latency)") rather than the same "As shown in @fig:..."
+  each time.
+- Lists are introduced by a full sentence (usually ending in a colon) and their meaning is drawn out in
+  the text around them. That can be the next paragraph, or a sentence that picks up the most important
+  item. It does not have to be a dedicated analysis paragraph after every list.
+- As a rough guide, a 5,000-word chapter has 3–6 figures, 2–5 tables and 2–5 lists. The literature
+  review should include at least one summary table of related studies.
 
 ## Chapter structures (defaults)
 
