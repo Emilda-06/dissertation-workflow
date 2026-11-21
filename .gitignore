@@ -1,55 +1,79 @@
 # =============================================================================
 # Dissertation workflow - .gitignore
 #
-# The repository holds only the pipeline (scripts, skill, templates, docs).
-# Everything that belongs to one student - their details, documents, chapters,
-# references and secrets - stays on their own machine and is never committed.
+# This repository holds ONLY the pipeline: scripts, the skill, default templates,
+# tests and documentation. Everything that belongs to one student (their details,
+# documents, chapters, references, Zotero data and secrets) stays on their own
+# machine and is never committed or pushed.
+#
+# Private areas are handled as whitelists ("ignore everything, then allow the
+# known pipeline files"), so a personal file dropped in the wrong place is
+# ignored by default instead of being pushed by accident.
 # =============================================================================
 
 # ---- Secrets and private settings -------------------------------------------
 .env
 .env.*
 !.env.example
+*.pem
+*.key
+secrets.*
+credentials*.json
 
-# ---- Dissertation projects ---------------------------------------------------
-# Each dissertation lives in projects/<name>/ with its OWN git repository
-# (scripts/project.py new <name>). Nothing in it is committed to this repository.
-projects/*
-!projects/.gitkeep
+# ---- Dissertation projects (ALL private work) --------------------------------
+# Each dissertation lives in projects/<name>/ with its OWN git repository.
+# Nothing in projects/ is committed here, including the active-project marker.
+/projects/*
+!/projects/.gitkeep
 
-# ---- Old single-project layout (scripts/project.py migrate moves it) --------
-config/project.yaml
-# Cover page (from the student's university template)
-config/cover.docx
-config/cover.pdf
-# Department guidelines, supervisor feedback and the student's earlier work
-config/guidelines/*
-!config/guidelines/.gitkeep
-config/feedback/*
-!config/feedback/.gitkeep
-config/existing/*
-!config/existing/.gitkeep
+# ---- Shared config: only the example and the default templates are public ----
+/config/*
+!/config/project.example.yaml
+!/config/templates/
+# (old single-project layout: project.yaml, cover.*, guidelines/, feedback/,
+#  existing/, style.yaml, requirements/, cover_template.docx ... all ignored)
 
-# ---- Everything the pipeline produces ---------------------------------------
-output/chapters/*
-!output/chapters/.gitkeep
-output/dissertation/docs/*
-!output/dissertation/docs/.gitkeep
-output/dissertation/front_matter/*
-!output/dissertation/front_matter/.gitkeep
+# ---- Old flat layout outputs at the root (project.py migrate moves them) -----
+/output/
+/references/
 
-# ---- Reference library (built per student, synced with their Zotero) --------
-references/*
-!references/.gitkeep
+# ---- docs/ holds pipeline documentation only, never a student's documents ----
+/docs/cover/
+/docs/guidelines/
+/docs/past_work/
+/docs/feedback/
 
-# ---- Build intermediates ----------------------------------------------------
+# ---- Personal documents dropped at the repository root -----------------------
+/*.docx
+/*.doc
+/*.dotx
+/*.pdf
+/*.odt
+/*.rtf
+/*.pptx
+/*.xlsx
+/*.csv
+/*.bib
+/*.ris
+/*.png
+/*.jpg
+/*.jpeg
+/*.zip
+
+# ---- Zotero / reference manager local data ----------------------------------
+*.sqlite
+*.sqlite-journal
+zotero.json
+
+# ---- Build intermediates and logs -------------------------------------------
 .build/
+*.log
 
 # ---- Local tools and environments (installed per machine, see SETUP.md) -----
 .venv/
 venv/
 node_modules/
-tools/
+/tools/
 
 # ---- Python -----------------------------------------------------------------
 __pycache__/
@@ -60,8 +84,13 @@ htmlcov/
 .mypy_cache/
 .ruff_cache/
 
-# ---- Claude Code: personal settings (shared settings.json stays tracked) ----
-.claude/settings.local.json
+# ---- Claude Code: only the shared settings and the skill are public ---------
+# (re-included here because a global gitignore may hide .claude/ and CLAUDE.md)
+!/CLAUDE.md
+!/.claude/
+/.claude/*
+!/.claude/settings.json
+!/.claude/skills/
 CLAUDE.local.md
 
 # ---- Office, editor and OS clutter ------------------------------------------
